@@ -44,7 +44,7 @@ public class GameServerTest implements Sleep {
 	 * Adding an event in the past changes the present
 	 */
 	@Test
-	public void testDelayedEventsAreEnqueued() {
+	public void testDelayedEventsAreEnqueued() throws Exception {
 		FigureState state = server.createProxy(new FigureState());
 		int id = server.getIdForProxy(state);
 
@@ -60,7 +60,7 @@ public class GameServerTest implements Sleep {
 	 * of acceptedDelay
 	 */
 	@Test
-	public void testLateEventsAreEnqueued() {
+	public void testLateEventsAreEnqueued() throws Exception {
 		FigureState state = server.createProxy(new FigureState());
 		int id = server.getIdForProxy(state);
 

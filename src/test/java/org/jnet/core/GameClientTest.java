@@ -27,7 +27,7 @@ public class GameClientTest {
 	}
 
 	@Test
-	public void testNewState() {
+	public void testNewState() throws Exception {
 		// the entity on that we want to test
 		FigureState state = client.createProxy(new FigureState());
 		int id = client.getIdForProxy(state);
@@ -44,7 +44,7 @@ public class GameClientTest {
 	}
 
 	@Test
-	public void testNewStateCanBeOverwritten() {
+	public void testNewStateCanBeOverwritten() throws Exception {
 		// the entity on that we want to test
 		FigureState state = client.createProxy(new FigureState());
 		int id = client.getIdForProxy(state);
@@ -59,6 +59,7 @@ public class GameClientTest {
 		// that will be overwritten by the clients request in the future 
 		FigureState newState = new FigureState();
 		newState.setTargetX(10);
+		
 		client.handleNewState(id, 0, newState);
 		Assert.assertEquals(60f, state.getX());
 	}

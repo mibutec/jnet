@@ -11,12 +11,12 @@ import org.junit.Test;
 
 public class GameEngineIntTest implements Eventually {
 	@Test
-	public void testCooperationWithoutDeplay() throws Exception {
+	public void testCooperationWithoutDelay() throws Exception {
 		testCooperation(0);
 	}
 	
 	@Test
-	public void testCooperationWithDeplay() throws Exception {
+	public void testCooperationWithDelay() throws Exception {
 		testCooperation(1500);
 	}
 	
@@ -31,7 +31,7 @@ public class GameEngineIntTest implements Eventually {
 		Assert.assertEquals(0.0f, clientState.getX());
 		Assert.assertEquals(0.0f, serverState.getX());
 		clientState.gotoX(1000);
-		sleep(200);
+		sleep(delay + 200);
 		
 		eventually(() -> {
 			Assert.assertTrue(clientState.getX() != 0f);

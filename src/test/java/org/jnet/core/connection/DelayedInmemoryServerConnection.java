@@ -4,6 +4,7 @@ import org.jala.mixins.Sleep;
 import org.jnet.core.Event;
 import org.jnet.core.GameClient;
 import org.jnet.core.GameServer;
+import org.jnet.core.helper.BeanHelper;
 
 public class DelayedInmemoryServerConnection implements ConnectionToServer, Sleep {
 	private GameServer server;

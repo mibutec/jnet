@@ -4,7 +4,7 @@ import org.jnet.core.Action;
 import org.jnet.core.UpdateableObject;
 
 public class FigureState implements UpdateableObject {
-	private static final long serialVersionUID = 1L;
+//	private static final long serialVersionUID = 1L;
 
 	private int targetX;
 	

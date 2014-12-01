@@ -1,5 +1,7 @@
 package org.jnet.core.testdata;
 
-public class FahrstuhlState {
+import java.io.Serializable;
+
+public class FahrstuhlState implements Serializable {
 
 }

@@ -49,13 +49,13 @@ public class RudpConnectionTest implements Eventually {
 
 	@Test
 	public void testServerReceivesMessage() throws Exception {
-		State<FigureState> oldState = client.getLastTrustedState(FigureState.class, figureStateId);
+		int oldTs = client.getLastTrustedState(FigureState.class, figureStateId).getTimestamp();
 		clientState.gotoX(100);
 		
 		eventually(() -> {
 			Assert.assertEquals(100, server.getObject(FigureState.class, figureStateId).getTargetX());
 			Assert.assertEquals(100, client.getObject(FigureState.class, figureStateId).getTargetX());
-			Assert.assertTrue(oldState.getTimestamp() != client.getLastTrustedState(FigureState.class, figureStateId).getTimestamp());
+			Assert.assertTrue(oldTs != client.getLastTrustedState(FigureState.class, figureStateId).getTimestamp());
 		});
 	}
 	

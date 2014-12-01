@@ -1,8 +1,11 @@
 package org.jnet.core;
 
+import java.util.Map.Entry;
+
 import junit.framework.Assert;
 
 import org.jnet.core.connection.ConnectionToServer;
+import org.jnet.core.testdata.FahrstuhlState;
 import org.jnet.core.testdata.FigureState;
 import org.jnet.core.testdata.Hochhaus;
 import org.junit.Before;
@@ -42,26 +45,76 @@ public class AbstractGameEngineTest {
 	}
 	
 	@Test
-	public void testProxyReuse() {
+	public void testProxyReuse() throws Exception {
 		FigureState state = new FigureState();
 		
 		Assert.assertTrue(client.createProxy(state) == client.createProxy(state));
 		Assert.assertTrue(client.createProxy(state) != client.createProxy(new FigureState()));
 	}
 	
+	/**
+	 * Test to create a proxy for an object containing
+	 * - other complexe objects
+	 * - arrays of complexe objects
+	 * - arrays of primitives
+	 * - collections of complexe objects
+	 * - collections of primitives
+	 * - transient objects
+	 * - maps
+	 * @throws Exception
+	 */
 	@Test
-	public void testComplexeProxyCreation() {
+	public void testComplexeProxyCreation() throws Exception {
+		// create Proxy
 		Hochhaus hochhaus = client.createProxy(new Hochhaus());
-		assertIsProxied(hochhaus);
-		assertIsProxied(hochhaus.getFahrstuhl());
 		
-		for (int i = 0; i < hochhaus.getFigures().length; i++) {
-			assertIsProxied(hochhaus.getFigures()[i]);
+		// test the proxied class itself
+		assertIsProxied(hochhaus);
+		
+		// test attributes
+		assertIsProxied(hochhaus.getFahrstuhl());
+		assertIsNotProxied(hochhaus.getTransientState());
+		
+		// array of objects
+		assertIsNotProxied(hochhaus.getFigures());
+		for (FigureState figure : hochhaus.getFigures()) {
+			assertIsProxied(figure);
+			Assert.assertTrue(hochhaus.getFahrstuhl() == figure.getFahrstuhl());
 		}
+		
+		// array of primitives
+		assertIsNotProxied(hochhaus.getIntArray());
+		for (int i : hochhaus.getIntArray()) {
+			assertIsNotProxied(i);
+		}
+		
+		// collection of objects
+		assertIsNotProxied(hochhaus.getMoreFigures());
+		for (FigureState figure : hochhaus.getMoreFigures()) {
+			assertIsProxied(figure);
+		}
+		
+		// collection of 'primitives'
+		assertIsNotProxied(hochhaus.getMorePrimitives());
+		for (Integer i : hochhaus.getMorePrimitives()) {
+			assertIsNotProxied(i);
+		}
+		
+		// Map of objects
+		assertIsNotProxied(hochhaus.getComplexeMap());
+		for (Entry<FigureState, FahrstuhlState> entry : hochhaus.getComplexeMap().entrySet()) {
+			assertIsProxied(entry.getKey());
+			assertIsProxied(entry.getValue());
+		}
+		
 	}
 	
 	private void assertIsProxied(Object proxy) {
+		Assert.assertTrue(proxy.getClass().getName().contains("$$_javassist"));
 		Assert.assertTrue(client.getIdForProxy(proxy) != null);
-		System.out.println(proxy.getClass());
+	}
+	private void assertIsNotProxied(Object proxy) {
+		Assert.assertFalse(proxy.getClass().getName().contains("$$_javassist"));
+		Assert.assertFalse(client.getIdForProxy(proxy) != null);
 	}
 }

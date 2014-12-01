@@ -1,6 +1,7 @@
 package org.jnet.core.connection;
 
 import org.jnet.core.GameClient;
+import org.jnet.core.helper.BeanHelper;
 
 public class DelayedInMemoryClientConnection implements ConnectionToClient {
 	private GameClient client;
@@ -24,7 +25,7 @@ public class DelayedInMemoryClientConnection implements ConnectionToClient {
 			@Override
 			public void run() {
 				sleep();
-				client.handleNewState(id, ts, state);
+				client.handleNewState(id, ts, BeanHelper.cloneGameObject(state));
 				
 			}
 		}).start();

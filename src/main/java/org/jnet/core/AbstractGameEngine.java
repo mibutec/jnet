@@ -1,28 +1,41 @@
 package org.jnet.core;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.lang.reflect.Field;
+import java.lang.reflect.Array;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.net.Proxy;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import javassist.util.proxy.MethodHandler;
 import javassist.util.proxy.ProxyFactory;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.jnet.core.helper.BeanHelper;
+
 public abstract class AbstractGameEngine implements AutoCloseable {
+	private static final Logger logger = LogManager.getLogger(AbstractGameEngine.class);
+	
+	private static final List<Class<?>> notProxiedClasses = Arrays.asList(Boolean.class, 
+			Byte.class,
+			Short.class,
+			Character.class,
+			Integer.class,
+			Long.class,
+			Float.class,
+			String.class
+			);
 	protected final Map<Integer, InvokeHandler<?>> handlers = new HashMap<>();
 
-	private AtomicInteger idGenerator = new AtomicInteger();
+	private AtomicInteger idGenerator = new AtomicInteger(0);
 
 	public Integer getIdForProxy(Object proxy) {
 		InvokeHandler<?> existingHandler = handlers.values().stream()
@@ -68,7 +81,9 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 	protected abstract void distributeEvent(int id, Event<?> event);
 
 	@SuppressWarnings("unchecked")
-	public <T> T createProxy(T impl) {
+	public <T> T createProxy(T impl) throws Exception {
+		logger.info("creating proxy for " + impl);
+		// reuse existing proxies
 		InvokeHandler<T> existingHandler = (InvokeHandler<T>) handlers.values().stream()
 				.filter(v -> v.getLastTrustedState().getState() == impl).findFirst().orElseGet(() -> null);
 
@@ -76,6 +91,14 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 			return existingHandler.getProxy();
 		}
 
+		// create proxies for all the attributes of that object
+		BeanHelper.forEachRelevantField(impl, field -> {
+			Object fieldValue = field.get(impl);
+			Object mayBeAProxy = createProxyOrNot(fieldValue);
+			field.set(impl, mayBeAProxy);
+		});
+
+		// create proxy for the given object
 		Integer id = idGenerator.addAndGet(1);
 		InvokeHandler<T> handler = new InvokeHandler<>(id, impl, this);
 		handlers.put(id, handler);
@@ -89,28 +112,39 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 			throw new RuntimeException(e);
 		}
 		handler.setProxy(proxy);
-
+		
 		return proxy;
 	}
 	
-	static void merge(Object src, Object dest) throws Exception {
-		Class<?> srcClass = src.getClass();
-		while (srcClass != Object.class) {
-			for (Field field: srcClass.getDeclaredFields()) {
-				System.out.println("merging " + field.getName());
-				field.setAccessible(true);
-				if (Modifier.isStatic(field.getModifiers()) ||
-						Modifier.isTransient(field.getModifiers()) ||
-						field.get(dest) instanceof Proxy) {
-					System.out.println("fished out " + field.getName());
-					continue;
-				}
-				
-				System.out.println("setting " + field.getName() + " to " + field.get(src));
-				field.set(dest, field.get(src));
+	@SuppressWarnings("unchecked")
+	private Object createProxyOrNot(Object o) throws Exception {
+		if (o == null) {
+			return null;
+		} else if (o.getClass().isPrimitive() || o.getClass().isEnum() || notProxiedClasses.contains(o.getClass())) {
+			return o;
+		} else if (o.getClass().isArray()) {
+		    int length = Array.getLength(o);
+		    for (int i = 0; i < length; i ++) {
+		        Object arrayElement = Array.get(o, i);
+		        Array.set(o, i, createProxyOrNot(arrayElement));
+		    }
+		    return o;
+		} else if (o instanceof Map) {
+			Map<Object, Object> newMap = (Map<Object, Object>) o.getClass().newInstance();
+			for (Entry<Object, Object> entry : ((Map<Object, Object>) o).entrySet()) {
+				newMap.put(createProxyOrNot(entry.getKey()), createProxyOrNot(entry.getValue()));
 			}
 			
-			srcClass = srcClass.getSuperclass();
+			return newMap;
+		} else if (o instanceof Collection) {
+			Collection<Object> newCollection = (Collection<Object>) o.getClass().newInstance();
+			for (Iterator<Object> it = ((Collection<Object>)o).iterator(); it.hasNext(); ) {
+				newCollection.add(createProxyOrNot(it.next()));
+			}
+			
+			return newCollection;
+		} else {
+			return createProxy(o);
 		}
 	}
 }
@@ -134,8 +168,8 @@ class InvokeHandler<T> implements MethodHandler {
 	public InvokeHandler(int id, T impl, AbstractGameEngine gameEngine) {
 		super();
 		this.id = id;
-		this.lastTrustedState = new State<T>(impl, gameEngine.serverTime(), (byte) 0);
-		this.latestState = deepCopy(lastTrustedState);
+		this.lastTrustedState = new State<T>(impl, 0, (byte) -1);
+		resetLatestState();
 		this.clazz = (Class<T>) impl.getClass();
 		this.gameEngine = gameEngine;
 	}
@@ -181,31 +215,15 @@ class InvokeHandler<T> implements MethodHandler {
 	}
 
 	public void newState(int ts, T state) throws Exception {
-//		lastTrustedState.setTimestamp(ts);
-//		lastTrustedState.setSequence((byte) 0);
-//		AbstractGameEngine.merge(state, lastTrustedState.getState());
-		lastTrustedState = new State<T>(state, ts, (byte) 0);
-		System.out.println(lastTrustedState.getState());
+		lastTrustedState.setTimestamp(ts);
+		lastTrustedState.setSequence((byte) 0);
+		BeanHelper.merge(state, lastTrustedState.getState());
 		resetLatestState();
 		sortedEvents = sortedEvents.stream().filter(e -> e.getTs() > ts).collect(Collectors.toList());
 	}
 
 	private void resetLatestState() {
-		latestState = deepCopy(lastTrustedState);
-	}
-
-	@SuppressWarnings("unchecked")
-	protected static <T> T deepCopy(T objectToCopy) {
-		try {
-			ByteArrayOutputStream baos = new ByteArrayOutputStream();
-			ObjectOutputStream oos = new ObjectOutputStream(baos);
-			oos.writeObject(objectToCopy);
-			return (T) new ObjectInputStream(new ByteArrayInputStream(baos.toByteArray())).readObject();
-		} catch (RuntimeException re) {
-			throw re;
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
+		latestState = lastTrustedState.clone();
 	}
 
 	public T getProxy() {

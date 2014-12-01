@@ -7,7 +7,6 @@ import junit.framework.Assert;
 import org.jala.mixins.Eventually;
 import org.jnet.core.GameClient;
 import org.jnet.core.GameServer;
-import org.jnet.core.State;
 import org.jnet.core.connection.impl.RudpConnectionToServer;
 import org.jnet.core.connection.impl.RudpServerConnector;
 import org.jnet.core.testdata.FigureState;
@@ -52,26 +51,26 @@ public class WanConnectionTest implements Eventually {
 
 	@Test
 	public void testServerReceivesMessage() throws Exception {
-		State<FigureState> oldState = client.getLastTrustedState(FigureState.class, figureStateId);
+		int oldTs = client.getLastTrustedState(FigureState.class, figureStateId).getTimestamp();
 		clientState.gotoX(100);
 		
 		eventually(() -> {
 			Assert.assertEquals(100, server.getObject(FigureState.class, figureStateId).getTargetX());
 			Assert.assertEquals(100, client.getObject(FigureState.class, figureStateId).getTargetX());
-			Assert.assertTrue(oldState.getTimestamp() != client.getLastTrustedState(FigureState.class, figureStateId).getTimestamp());
+			Assert.assertTrue(oldTs != client.getLastTrustedState(FigureState.class, figureStateId).getTimestamp());
 		});
 	}
 	
 	@Test
 	public void testPackageLost() throws Exception {
 		
-		State<FigureState> oldState = client.getLastTrustedState(FigureState.class, figureStateId);
+		int oldTs = client.getLastTrustedState(FigureState.class, figureStateId).getTimestamp();
 		clientState.gotoX(100);
 		
 		eventually(() -> {
 			Assert.assertEquals(100, server.getObject(FigureState.class, figureStateId).getTargetX());
 			Assert.assertEquals(100, client.getObject(FigureState.class, figureStateId).getTargetX());
-			Assert.assertTrue(oldState.getTimestamp() != client.getLastTrustedState(FigureState.class, figureStateId).getTimestamp());
+			Assert.assertTrue(oldTs != client.getLastTrustedState(FigureState.class, figureStateId).getTimestamp());
 		});
 	}
 }

@@ -3,7 +3,9 @@ package org.jnet.core;
 import java.io.Serializable;
 import java.util.List;
 
-public class State<T> implements Serializable {
+import org.jnet.core.helper.BeanHelper;
+
+public class State<T> implements Serializable, Cloneable {
 	private static final long serialVersionUID = 1L;
 
 	private final T state;
@@ -17,6 +19,10 @@ public class State<T> implements Serializable {
 		this.state = state;
 		this.timestamp = timestamp;
 		this.sequence = sequence;
+	}
+	
+	public State<T> clone() {
+		return new State<T>(BeanHelper.cloneGameObject(state), timestamp, sequence);
 	}
 	
 	public T updateState(List<Event<T>> events, int now) {
@@ -46,6 +52,11 @@ public class State<T> implements Serializable {
 		}
 		
 		return state;
+	}
+	
+	@Override
+	public String toString() {
+		return "State [state=" + state + ", timestamp=" + timestamp + ", sequence=" + sequence + "]";
 	}
 
 	public T getState() {

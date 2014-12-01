@@ -18,10 +18,6 @@ public class Event<T> implements Comparable<Event<T>>, Serializable {
 	
 	private Object[] args;
 
-	Event() {
-		
-	}
-
 	public Event(int ts, byte sequence, Method method, Object[] args) {
 		super();
 		this.ts = ts;
