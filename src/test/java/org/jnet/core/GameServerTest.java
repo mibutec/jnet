@@ -9,7 +9,8 @@ import junit.framework.Assert;
 import org.jala.mixins.Sleep;
 import org.jnet.core.Event;
 import org.jnet.core.GameServer;
-import org.jnet.core.connection.ConnectionToClient;
+import org.jnet.core.connection.Connection;
+import org.jnet.core.connection.messages.NewStateMessage;
 import org.jnet.core.testdata.FigureState;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -73,12 +74,12 @@ public class GameServerTest implements Sleep {
 	
 	@Test
 	public void testEventsAreDistributed() throws Exception {
-		ConnectionToClient ctc = mock(ConnectionToClient.class);
+		Connection ctc = mock(Connection.class);
 		server.addConnetion(ctc);
 		FigureState state = server.createProxy(new FigureState());
 		int id = server.getIdForProxy(state);
 
 		state.gotoX(1000);
-		Mockito.verify(ctc, Mockito.times(1)).sendState(id, state, 0);
+		Mockito.verify(ctc, Mockito.times(1)).send(new NewStateMessage(id, 0, state));
 	}
 }

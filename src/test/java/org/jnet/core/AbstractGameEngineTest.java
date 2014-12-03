@@ -4,7 +4,7 @@ import java.util.Map.Entry;
 
 import junit.framework.Assert;
 
-import org.jnet.core.connection.ConnectionToServer;
+import org.jnet.core.connection.Connection;
 import org.jnet.core.testdata.FahrstuhlState;
 import org.jnet.core.testdata.FigureState;
 import org.jnet.core.testdata.Hochhaus;
@@ -20,7 +20,7 @@ public class AbstractGameEngineTest {
 	@Before
 	public void setup() {
 		serverTime = 0;
-		client = new GameClient(Mockito.mock(ConnectionToServer.class)) {
+		client = new GameClient(Mockito.mock(Connection.class)) {
 			@Override
 			public int serverTime() {
 				return serverTime;

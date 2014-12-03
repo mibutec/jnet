@@ -7,7 +7,7 @@ import junit.framework.Assert;
 import org.jala.mixins.Eventually;
 import org.jnet.core.GameClient;
 import org.jnet.core.GameServer;
-import org.jnet.core.connection.impl.RudpConnectionToServer;
+import org.jnet.core.connection.impl.RudpConnection;
 import org.jnet.core.connection.impl.RudpServerConnector;
 import org.jnet.core.testdata.FigureState;
 import org.junit.After;
@@ -20,7 +20,7 @@ public class WanConnectionTest implements Eventually {
 	private static InetSocketAddress clientAddress = new InetSocketAddress("localhost", 12347);
 
 	private GameServer server;
-	private RudpConnectionToServer cts;
+	private RudpConnection cts;
 	private GameClient client;
 	private FigureState clientState;
 	private int figureStateId;
@@ -36,7 +36,7 @@ public class WanConnectionTest implements Eventually {
 		server = new GameServer(new RudpServerConnector(serverAddress.getPort()));
 		server.createProxy(new FigureState());
 
-		cts = new RudpConnectionToServer(emuAddress.getHostName(), emuAddress.getPort(), clientAddress.getHostName(), clientAddress.getPort());
+		cts = new RudpConnection(emuAddress.getHostName(), emuAddress.getPort(), clientAddress.getHostName(), clientAddress.getPort());
 		client = new GameClient(cts);
 		clientState = client.createProxy(new FigureState());
 		figureStateId = client.getIdForProxy(clientState);
@@ -55,6 +55,8 @@ public class WanConnectionTest implements Eventually {
 		clientState.gotoX(100);
 		
 		eventually(() -> {
+			client.updateGameState();
+			server.updateGameState();
 			Assert.assertEquals(100, server.getObject(FigureState.class, figureStateId).getTargetX());
 			Assert.assertEquals(100, client.getObject(FigureState.class, figureStateId).getTargetX());
 			Assert.assertTrue(oldTs != client.getLastTrustedState(FigureState.class, figureStateId).getTimestamp());
@@ -68,6 +70,8 @@ public class WanConnectionTest implements Eventually {
 		clientState.gotoX(100);
 		
 		eventually(() -> {
+			client.updateGameState();
+			server.updateGameState();
 			Assert.assertEquals(100, server.getObject(FigureState.class, figureStateId).getTargetX());
 			Assert.assertEquals(100, client.getObject(FigureState.class, figureStateId).getTargetX());
 			Assert.assertTrue(oldTs != client.getLastTrustedState(FigureState.class, figureStateId).getTimestamp());

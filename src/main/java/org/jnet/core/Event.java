@@ -1,8 +1,5 @@
 package org.jnet.core;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -10,13 +7,13 @@ import java.util.Arrays;
 public class Event<T> implements Comparable<Event<T>>, Serializable {
 	private static final long serialVersionUID = 1L;
 
-	private int ts;
+	private final int ts;
 	
-	private byte sequence;
+	private final byte sequence;
 	
-	private Method method;
+	private final Method method;
 	
-	private Object[] args;
+	private final Object[] args;
 
 	public Event(int ts, byte sequence, Method method, Object[] args) {
 		super();
@@ -102,24 +99,5 @@ public class Event<T> implements Comparable<Event<T>>, Serializable {
 
 	public byte getSequence() {
 		return sequence;
-	}
-	
-	private void writeObject(ObjectOutputStream out) throws IOException {
-		out.writeInt(ts);
-		out.writeByte(sequence);
-		out.writeObject(method.getDeclaringClass().getName());
-		out.writeObject(method.getName());
-		out.writeObject(method.getParameterTypes());
-		out.writeObject(args);
-	}
-	
-	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException, NoSuchMethodException {
-		ts = in.readInt();
-		sequence = in.readByte();
-		String classname = (String) in.readObject();
-		String methodName = (String) in.readObject();
-		Class<?>[] parameterTypes = (Class<?>[]) in.readObject();
-		method = Class.forName(classname).getDeclaredMethod(methodName, parameterTypes);
-		args = (Object[]) in.readObject();
 	}
 }

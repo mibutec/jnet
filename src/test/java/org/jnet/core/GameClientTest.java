@@ -1,10 +1,10 @@
 package org.jnet.core;
 
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyInt;
 import junit.framework.Assert;
 
-import org.jnet.core.connection.ConnectionToServer;
+import org.jnet.core.connection.Connection;
+import org.jnet.core.connection.messages.NewStateMessage;
 import org.jnet.core.testdata.FigureState;
 import org.junit.Before;
 import org.junit.Test;
@@ -18,7 +18,7 @@ public class GameClientTest {
 	@Before
 	public void setup() {
 		serverTime = 0;
-		client = new GameClient(Mockito.mock(ConnectionToServer.class)) {
+		client = new GameClient(Mockito.mock(Connection.class)) {
 			@Override
 			public int serverTime() {
 				return serverTime;
@@ -35,7 +35,7 @@ public class GameClientTest {
 		// server sends a new state
 		FigureState newState = new FigureState();
 		newState.setTargetX(500);
-		client.handleNewState(id, 0, newState);
+		client.handleNewState(id, 0, new NewStateMessage(id, 0, newState).getState());
 
 		// client reacts on that new state
 		serverTime = 1000;
@@ -60,24 +60,24 @@ public class GameClientTest {
 		FigureState newState = new FigureState();
 		newState.setTargetX(10);
 		
-		client.handleNewState(id, 0, newState);
+		client.handleNewState(id, 0, new NewStateMessage(id, 0, newState).getState());
 		Assert.assertEquals(60f, state.getX());
 	}
 	
 	@Test
 	public void testCallsToServer() throws Exception {
-		ConnectionToServer serverConnection = Mockito.mock(ConnectionToServer.class);
+		Connection serverConnection = Mockito.mock(Connection.class);
 		GameClient client = new GameClient(serverConnection);
 		FigureState state = client.createProxy(new FigureState());
 		
 		Assert.assertEquals(0.0f, state.getX());
-		Mockito.verify(serverConnection, Mockito.never()).sendEvent(anyInt(), any());
+		Mockito.verify(serverConnection, Mockito.never()).send(any());
 
 		state.update(42);
-		Mockito.verify(serverConnection, Mockito.never()).sendEvent(anyInt(), any());
+		Mockito.verify(serverConnection, Mockito.never()).send(any());
 
 		state.gotoX(42);
-		Mockito.verify(serverConnection, Mockito.times(1)).sendEvent(anyInt(), any());
+		Mockito.verify(serverConnection, Mockito.times(1)).send(any());
 		
 		client.close();
 	}

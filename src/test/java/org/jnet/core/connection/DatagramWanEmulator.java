@@ -263,6 +263,11 @@ public class DatagramWanEmulator {
                     else if (socketAddressB.equals(packet.getSocketAddress()))
                         packet.setSocketAddress(socketAddressA);
                     
+                    if (false) {
+	                    SocketAddress to = packet.getSocketAddress();
+	                    System.out.println("sending " + packet.getData().length + " bytes from " + from + " to " + to + " ('" + new String(packet.getData()).trim() + "')");
+                    }
+                    
                     do {
 
                         if (Math.random() >= packageLoss)

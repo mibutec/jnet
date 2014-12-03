@@ -40,7 +40,7 @@ public class RudpServerConnector implements ServerConnector, Runnable {
 		while (!serverSocket.isClosed()) {
 			try {
 				Socket clientSocket = serverSocket.accept();
-				server.addConnetion(new RudpConnectionToClient(clientSocket, server));
+				server.addConnetion(new RudpConnection(clientSocket));
 			} catch (IOException ie) {
 				logger.info("server is closing, serverSocket closed...");
 			} catch (Exception e) {

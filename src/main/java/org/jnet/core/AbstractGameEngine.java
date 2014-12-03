@@ -1,8 +1,8 @@
 package org.jnet.core;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -11,6 +11,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -19,23 +20,21 @@ import javassist.util.proxy.ProxyFactory;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jnet.core.connection.Connection;
+import org.jnet.core.connection.messages.Message;
 import org.jnet.core.helper.BeanHelper;
 
 public abstract class AbstractGameEngine implements AutoCloseable {
 	private static final Logger logger = LogManager.getLogger(AbstractGameEngine.class);
 	
-	private static final List<Class<?>> notProxiedClasses = Arrays.asList(Boolean.class, 
-			Byte.class,
-			Short.class,
-			Character.class,
-			Integer.class,
-			Long.class,
-			Float.class,
-			String.class
-			);
 	protected final Map<Integer, InvokeHandler<?>> handlers = new HashMap<>();
 
 	private AtomicInteger idGenerator = new AtomicInteger(0);
+	
+	public abstract String name();
+	
+	abstract protected Set<Connection> getConnections();
+	abstract protected void handleMessage(Message message);
 
 	public Integer getIdForProxy(Object proxy) {
 		InvokeHandler<?> existingHandler = handlers.values().stream()
@@ -46,6 +45,15 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 		}
 		
 		return null;
+	}
+	
+	public void updateGameState() {
+		for (Connection connection : getConnections()) {
+			Message message = null;
+			while ((message = connection.nextMessage()) != null) {
+				handleMessage(message);
+			}
+		}
 	}
 
 	@SuppressWarnings("unchecked")
@@ -120,7 +128,7 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 	private Object createProxyOrNot(Object o) throws Exception {
 		if (o == null) {
 			return null;
-		} else if (o.getClass().isPrimitive() || o.getClass().isEnum() || notProxiedClasses.contains(o.getClass())) {
+		} else if (BeanHelper.isPrimitive(o.getClass())) {
 			return o;
 		} else if (o.getClass().isArray()) {
 		    int length = Array.getLength(o);
@@ -214,10 +222,10 @@ class InvokeHandler<T> implements MethodHandler {
 		return implMethod.invoke(getLatestState(gameEngine.serverTime()), args);
 	}
 
-	public void newState(int ts, T state) throws Exception {
+	public void newState(int ts, Map<Field, Object> state) throws Exception {
+		BeanHelper.merge(state, lastTrustedState.getState());
 		lastTrustedState.setTimestamp(ts);
 		lastTrustedState.setSequence((byte) 0);
-		BeanHelper.merge(state, lastTrustedState.getState());
 		resetLatestState();
 		sortedEvents = sortedEvents.stream().filter(e -> e.getTs() > ts).collect(Collectors.toList());
 	}

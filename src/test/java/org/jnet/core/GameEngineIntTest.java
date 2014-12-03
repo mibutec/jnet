@@ -3,9 +3,7 @@ package org.jnet.core;
 import junit.framework.Assert;
 
 import org.jala.mixins.Eventually;
-import org.jnet.core.GameClient;
-import org.jnet.core.GameServer;
-import org.jnet.core.connection.DelayedInmemoryServerConnection;
+import org.jnet.core.connection.DelayedInmemoryConnection;
 import org.jnet.core.testdata.FigureState;
 import org.junit.Test;
 
@@ -21,8 +19,10 @@ public class GameEngineIntTest implements Eventually {
 	}
 	
 	private void testCooperation(int delay) throws Exception {
+		DelayedInmemoryConnection c = createInMemoryConnections(delay);
 		GameServer server = new GameServer(1500);
-		GameClient client = new GameClient(new DelayedInmemoryServerConnection(server, delay));
+		GameClient client = new GameClient(c);
+		server.addConnetion(c.getConterpart());
 		FigureState serverState = server.createProxy(new FigureState());
 		serverState.setName("server");
 		FigureState clientState = client.createProxy(new FigureState());
@@ -34,9 +34,21 @@ public class GameEngineIntTest implements Eventually {
 		sleep(delay + 200);
 		
 		eventually(() -> {
+			client.updateGameState();
+			server.updateGameState();
 			Assert.assertTrue(clientState.getX() != 0f);
 			Assert.assertEquals((int) clientState.getX(), (int) serverState.getX());
 		});
 		client.close();
+		server.close();
+	}
+	
+	public static DelayedInmemoryConnection createInMemoryConnections(int delay) {
+		DelayedInmemoryConnection c1 = new DelayedInmemoryConnection(delay);
+		DelayedInmemoryConnection c2 = new DelayedInmemoryConnection(delay);
+		c1.setConterpart(c2);
+		c2.setConterpart(c1);
+		
+		return c1;
 	}
 }

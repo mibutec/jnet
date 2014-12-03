@@ -2,15 +2,33 @@ package org.jnet.core.helper;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
 public class BeanHelper {
+	private static final List<Class<?>> notProxiedClasses = Arrays.asList(Boolean.class, 
+			Byte.class,
+			Short.class,
+			Character.class,
+			Integer.class,
+			Long.class,
+			Float.class,
+			String.class
+			);
+
 	private BeanHelper() {
+	}
+	
+	public static boolean isPrimitive(Class<?> clazz) {
+		return clazz.isPrimitive() || clazz.isEnum() || notProxiedClasses.contains(clazz);
 	}
 	
 	@SuppressWarnings("unchecked")
 	public static<T> T cloneGameObject(T objectToCopy) {
 		try {
-			T ret = (T) Class.forName(objectToCopy.getClass().getName()).newInstance();
+			T ret = (T) objectToCopy.getClass().newInstance();
 			forEachRelevantField(objectToCopy, field -> {
 				field.set(ret, field.get(objectToCopy));
 			});
@@ -45,10 +63,11 @@ public class BeanHelper {
 		
 	}
 	
-	public static void merge(Object src, Object dest) throws Exception {
-		forEachRelevantField(src, field -> {
-			field.set(dest, field.get(src));
-		});
+	public static void merge(Map<Field, Object> src, Object dest) throws Exception {
+		for (Entry<Field, Object> entry : src.entrySet()) {
+			entry.getKey().setAccessible(true);
+			entry.getKey().set(dest, entry.getValue());
+		}
 	}
 	
 	public static interface ThrowingConsumer<T> {
