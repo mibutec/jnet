@@ -5,32 +5,37 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jnet.core.AbstractGameEngine;
 import org.jnet.core.helper.BeanHelper;
 
 public class NewStateMessage extends AbstractMessage {
+	private static final Logger logger = LogManager.getLogger(NewStateMessage.class);
+
 	private int id;
 	
 	private int ts;
 	
-	private Map<Field, Object> state;
+	private MetaData metaData;
 	
 	private AbstractGameEngine gameEngine;
+	
+	private Map<Field, Object> state = new HashMap<>();
 	
 	public NewStateMessage(int id, int ts, Object state) {
 		super();
 		this.id = id;
 		this.ts = ts;
-		this.state = new HashMap<>();
 		try {
-			BeanHelper.forEachRelevantField(state, field -> {
-				if (BeanHelper.isPrimitive(field.getType())) {
-					this.state.put(field, field.get(state));
-				}
-			});
+			metaData = new MetaData(state);
+			for (Field field : metaData.getFields()) {
+				this.state.put(field, field.get(state));
+			}
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
@@ -43,7 +48,7 @@ public class NewStateMessage extends AbstractMessage {
 	
 	@Override
 	public String toString() {
-		return "NewStateMessage [id=" + id + ", ts=" + ts + ", state=" + state + "]";
+		return "NewStateMessage [id=" + id + ", ts=" + ts + ", metaData=" + metaData + "]";
 	}
 	
 	@Override
@@ -52,7 +57,7 @@ public class NewStateMessage extends AbstractMessage {
 		int result = 1;
 		result = prime * result + ((gameEngine == null) ? 0 : gameEngine.hashCode());
 		result = prime * result + id;
-		result = prime * result + ((state == null) ? 0 : state.hashCode());
+		result = prime * result + ((metaData == null) ? 0 : metaData.hashCode());
 		result = prime * result + ts;
 		return result;
 	}
@@ -73,10 +78,10 @@ public class NewStateMessage extends AbstractMessage {
 			return false;
 		if (id != other.id)
 			return false;
-		if (state == null) {
-			if (other.state != null)
+		if (metaData == null) {
+			if (other.metaData != null)
 				return false;
-		} else if (!state.equals(other.state))
+		} else if (!metaData.equals(other.metaData))
 			return false;
 		if (ts != other.ts)
 			return false;
@@ -87,12 +92,23 @@ public class NewStateMessage extends AbstractMessage {
 	public void write(DataOutputStream out) throws Exception {
 		out.writeInt(id);
 		out.writeInt(ts);
-		for (Entry<Field, Object> entry : state.entrySet()) {
-			writePrimitveToStream(entry.getValue(), out);
+		for (Field field : metaData.getFields()) {
+			writePrimitveToStream(field.getType(), state.get(field), out);
 		}
 	}
 	
-	private void writePrimitveToStream(Object primitiveAsObject, DataOutputStream out) throws IOException {
+	private void writePrimitveToStream(Class<?> type, Object primitiveAsObject, DataOutputStream out) throws IOException {
+		if (primitiveAsObject == null) {
+			logger.trace("writing null to stream");
+			out.writeBoolean(true);
+			return;
+		}
+		
+		if (!type.isPrimitive()) {
+			logger.trace("{} is not a primitive, writing pre-byte {}", primitiveAsObject.getClass(), false);
+			out.writeBoolean(false);
+		}
+		
 		if (primitiveAsObject instanceof Byte) {
 			out.writeByte((Byte) primitiveAsObject);
 		} else if (primitiveAsObject instanceof Boolean) {
@@ -110,26 +126,38 @@ public class NewStateMessage extends AbstractMessage {
 		} else if (primitiveAsObject instanceof Short) {
 			out.writeShort((Short) primitiveAsObject);
 		} else if (primitiveAsObject instanceof String) {
-			out.writeBytes((String) primitiveAsObject);
+			out.writeUTF((String) primitiveAsObject);
 		} else {
 			throw new RuntimeException("unknown datatype " + primitiveAsObject.getClass().getName() + " when trying to serialize state");
 		}
 	}
-		
+	
+	public void setGameEngine(AbstractGameEngine gameEngine) {
+		this.gameEngine = gameEngine;
+	}
+
 	@Override
 	public void read(DataInputStream in) throws Exception {
 		id = in.readInt();
 		ts = in.readInt();
-		state = new HashMap<>();
-		
-		BeanHelper.forEachRelevantField(gameEngine.getObject(Object.class, id), field -> {
-			if (BeanHelper.isPrimitive(field.getType())) {
-				state.put(field, readPrimitveFromStream(field.getType(), in));
-			}
-		});
+		MetaData metaData = new MetaData(gameEngine.getObject(Object.class, id));
+		for (Field field : metaData.getFields()) {
+			logger.trace("reading field {} from stream...", field.getName());
+			Object o = readPrimitveFromStream(field.getType(), in);
+			logger.trace("value for field {} is {}", field.getName(), o);
+			state.put(field, o);
+		}
 	}
 
 	private Object readPrimitveFromStream(Class<?> type, DataInputStream in) throws IOException {
+		if (!type.isPrimitive()) {
+			boolean isNull = in.readBoolean();
+			logger.trace("{} is not a primitive, pre-byte is {}", type.getName(), isNull);
+			if (isNull) {
+				return null;
+			}
+		}
+		
 		if (type == Byte.class || type == byte.class) {
 			return in.readByte();
 		} else if (type == Boolean.class || type == boolean.class) {
@@ -161,7 +189,67 @@ public class NewStateMessage extends AbstractMessage {
 		return ts;
 	}
 
-	public Map<Field, Object> getState() {
+	public Map<Field, Object> getStateAsMap() {
 		return state;
+	}
+}
+
+class MetaData {
+	private final List<Field> fields = new LinkedList<>();
+
+	private int nullableCount;
+	
+	public MetaData(Object o) throws Exception {
+		BeanHelper.forEachRelevantField(o, field -> {
+			if (BeanHelper.isPrimitive(field.getType())) {
+				fields.add(field);
+				if (field.getType().isPrimitive()) {
+					nullableCount++;
+				}
+			}
+		});
+	}
+	
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((fields == null) ? 0 : fields.hashCode());
+		result = prime * result + nullableCount;
+		return result;
+	}
+
+
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		MetaData other = (MetaData) obj;
+		if (fields == null) {
+			if (other.fields != null)
+				return false;
+		} else if (!fields.equals(other.fields))
+			return false;
+		if (nullableCount != other.nullableCount)
+			return false;
+		return true;
+	}
+
+
+
+	@Override
+	public String toString() {
+		return "MetaData [fields=" + fields + ", nullableCount=" + nullableCount + "]";
+	}
+
+
+
+	public List<Field> getFields() {
+		return fields;
 	}
 }

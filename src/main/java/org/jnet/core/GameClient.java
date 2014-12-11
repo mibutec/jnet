@@ -92,7 +92,7 @@ public class GameClient extends AbstractGameEngine {
 			calibrateServerTime(trMessage.getClientTimestamp(), trMessage.getServerTime());
 		} else if (message instanceof NewStateMessage) {
 			NewStateMessage nsMessage = (NewStateMessage) message;
-			handleNewState(nsMessage.getId(), nsMessage.getTs(), nsMessage.getState());
+			handleNewState(nsMessage.getId(), nsMessage.getTs(), nsMessage.getStateAsMap());
 		} else {
 			logger.error("unknown messageType arrived on {}, type = {}", name(), message);
 		}

@@ -1,12 +1,9 @@
 package org.jnet.core;
 
-import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 
-public class Event<T> implements Comparable<Event<T>>, Serializable {
-	private static final long serialVersionUID = 1L;
-
+public class Event<T> implements Comparable<Event<T>> {
 	private final int ts;
 	
 	private final byte sequence;

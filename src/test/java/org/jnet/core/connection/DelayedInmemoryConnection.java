@@ -1,58 +1,62 @@
 package org.jnet.core.connection;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.util.ArrayDeque;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Queue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import org.jala.mixins.Sleep;
-import org.jnet.core.AbstractGameEngine;
-import org.jnet.core.connection.messages.Message;
+import org.jala.mixins.Unchecker;
 
-public class DelayedInmemoryConnection implements Connection, Sleep {
+public class DelayedInmemoryConnection extends AbstractConnection implements Sleep {
 	private long delay;
 	
 	private DelayedInmemoryConnection conterpart;
+
+	private Queue<ByteWithTimestamp> queue = new LinkedBlockingQueue<>(1024 * 1024);
+
+	private InputStream inputStream = new InputStream() {			
+		@Override
+		public synchronized int read() throws IOException {
+			return Unchecker.uncheck(() -> {
+				ByteWithTimestamp bwts = queue.peek();
+				while (bwts == null || bwts.getTs() >= System.currentTimeMillis() + delay) {
+					sleep(50);
+					bwts = queue.peek();
+				}
+				return queue.poll().getB() + 128;
+			});
+		}
+	};
 	
-	private Queue<Message> queue = new ArrayDeque<>();
+	private OutputStream outputStream = new OutputStream() {
+		@Override
+		public synchronized void write(int b) throws IOException {
+			conterpart.queue.add(new ByteWithTimestamp((byte) (b + 128), System.currentTimeMillis()));
+		}
+	};
 	
-	public void addMessage(Message message) {
-		queue.add(message);
+	public DelayedInmemoryConnection getConterpart() {
+		return conterpart;
+	}
+
+	@Override
+	public InputStream getInputStream() {
+		return inputStream;
+	}
+	
+	@Override
+	public OutputStream getOutputStream() {
+		return outputStream;
 	}
 	
 	public DelayedInmemoryConnection(long delay) {
 		this.delay = delay;
 	}
 	
-	@Override
-	public void send(Message message) {
-		new Thread(new Runnable() {
-			
-			@Override
-			public void run() {
-				try {
-					sleep(delay);
-					ByteArrayOutputStream baos = new ByteArrayOutputStream();
-					message.write(new DataOutputStream(baos));
-					ByteArrayInputStream input = new ByteArrayInputStream(baos.toByteArray());
-					message.read(new DataInputStream(input));
-					conterpart.addMessage(message);
-				} catch (Exception e) {
-					throw new RuntimeException(e);
-				}
-				
-			}
-		}).start();
-	}
-	
 	public void setConterpart(DelayedInmemoryConnection connection) {
 		this.conterpart = connection;
-	}
-	
-	public DelayedInmemoryConnection getConterpart() {
-		return conterpart;
 	}
 
 	@Override
@@ -61,12 +65,27 @@ public class DelayedInmemoryConnection implements Connection, Sleep {
 	}
 
 	@Override
-	public Message nextMessage() {
-		return queue.poll();
+	protected boolean isClosed() {
+		return false;
+	}
+}
+
+class ByteWithTimestamp {
+	private final byte b;
+	
+	private final long ts;
+
+	public ByteWithTimestamp(byte b, long ts) {
+		super();
+		this.b = b;
+		this.ts = ts;
 	}
 
-	@Override
-	public void setGameEngine(AbstractGameEngine engine) {
-		// nothing to do
+	public byte getB() {
+		return b;
+	}
+
+	public long getTs() {
+		return ts;
 	}
 }

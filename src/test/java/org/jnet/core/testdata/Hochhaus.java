@@ -1,12 +1,13 @@
 package org.jnet.core.testdata;
 
-import java.io.Serializable;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-public class Hochhaus implements Serializable {
+public class Hochhaus {
+	private Float something = 23f;
+	
 	private FigureState[] figures;
 	
 	private FahrstuhlState fahrstuhl;
@@ -99,5 +100,13 @@ public class Hochhaus implements Serializable {
 
 	public void setComplexeMap(Map<FigureState, FahrstuhlState> complexeMap) {
 		this.complexeMap = complexeMap;
+	}
+
+	public Float getSomething() {
+		return something;
+	}
+
+	public void setSomething(Float something) {
+		this.something = something;
 	}
 }

@@ -1,13 +1,10 @@
 package org.jnet.core;
 
-import java.io.Serializable;
 import java.util.List;
 
 import org.jnet.core.helper.BeanHelper;
 
-public class State<T> implements Serializable, Cloneable {
-	private static final long serialVersionUID = 1L;
-
+public class State<T> implements Cloneable {
 	private final T state;
 	
 	private int timestamp;

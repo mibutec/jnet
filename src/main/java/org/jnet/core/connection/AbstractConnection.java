@@ -86,8 +86,10 @@ public abstract class AbstractConnection implements Connection, Runnable {
 				byte messageKey = (byte) getInputStream().read();
 				Class<? extends Message> messageClass = IdToMessageMapping.get(messageKey);
 				if (messageClass == null) {
-					logger.error("Message with unknow messagekey {} arrived, just know messagekeys {}", messageKey, IdToMessageMapping);
+					logger.error("Message with unknow messagekey {} arrived at {}, just know messagekeys {}", messageKey, gameEngine.name(), IdToMessageMapping);
 					continue;
+				} else {
+					logger.debug("Message of type {} arrived at {}", messageClass.getName(), gameEngine.name());
 				}
 				
 				Message message;

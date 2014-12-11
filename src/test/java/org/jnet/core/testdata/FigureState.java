@@ -8,13 +8,15 @@ public class FigureState implements UpdateableObject {
 
 	private int targetX;
 	
-	private float speed = 0.05f; // pixel / ms
+	private Float speed = 0.05f; // pixel / ms
 	
 	private float x;
 	
 	private FahrstuhlState fahrstuhl;
 	
 	private transient String name;
+	
+	private String aString;
 	
 	public FigureState(FahrstuhlState fahrstuhl) {
 		super();
@@ -24,8 +26,6 @@ public class FigureState implements UpdateableObject {
 	public FigureState() {
 		super();
 	}
-
-
 
 	public String getName() {
 		return name;
@@ -104,5 +104,21 @@ public class FigureState implements UpdateableObject {
 
 	public void setFahrstuhl(FahrstuhlState fahrstuhl) {
 		this.fahrstuhl = fahrstuhl;
+	}
+
+	public String getaString() {
+		return aString;
+	}
+
+	public void setaString(String aString) {
+		this.aString = aString;
+	}
+
+	public Float getSpeed() {
+		return speed;
+	}
+
+	public void setSpeed(Float speed) {
+		this.speed = speed;
 	}
 }

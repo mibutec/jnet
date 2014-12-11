@@ -35,7 +35,7 @@ public class GameClientTest {
 		// server sends a new state
 		FigureState newState = new FigureState();
 		newState.setTargetX(500);
-		client.handleNewState(id, 0, new NewStateMessage(id, 0, newState).getState());
+		client.handleNewState(id, 0, new NewStateMessage(id, 0, newState).getStateAsMap());
 
 		// client reacts on that new state
 		serverTime = 1000;
@@ -60,7 +60,7 @@ public class GameClientTest {
 		FigureState newState = new FigureState();
 		newState.setTargetX(10);
 		
-		client.handleNewState(id, 0, new NewStateMessage(id, 0, newState).getState());
+		client.handleNewState(id, 0, new NewStateMessage(id, 0, newState).getStateAsMap());
 		Assert.assertEquals(60f, state.getX());
 	}
 	

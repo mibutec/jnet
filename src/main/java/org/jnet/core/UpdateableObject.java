@@ -1,7 +1,6 @@
 package org.jnet.core;
 
-import java.io.Serializable;
 
-public interface UpdateableObject extends Serializable {
+public interface UpdateableObject {
 	void update(long delta);
 }

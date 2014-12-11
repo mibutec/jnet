@@ -19,8 +19,8 @@ public class GameEngineIntTest implements Eventually {
 	}
 	
 	private void testCooperation(int delay) throws Exception {
-		DelayedInmemoryConnection c = createInMemoryConnections(delay);
 		GameServer server = new GameServer(1500);
+		DelayedInmemoryConnection c = createInMemoryConnections(delay);
 		GameClient client = new GameClient(c);
 		server.addConnetion(c.getConterpart());
 		FigureState serverState = server.createProxy(new FigureState());
