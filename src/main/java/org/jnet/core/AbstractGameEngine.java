@@ -20,6 +20,7 @@ import javassist.util.proxy.ProxyFactory;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jala.mixins.Unchecker;
 import org.jnet.core.connection.Connection;
 import org.jnet.core.connection.messages.Message;
 import org.jnet.core.helper.BeanHelper;
@@ -37,11 +38,8 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 	abstract protected void handleMessage(Message message);
 
 	public Integer getIdForProxy(Object proxy) {
-		InvokeHandler<?> existingHandler = handlers.values().stream()
-				.filter(v -> v.getProxy() == proxy).findFirst().orElseGet(() -> null);
-
-		if (existingHandler != null) {
-			return existingHandler.getId();
+		if (proxy instanceof ManagedObject) {
+			return ((ManagedObject) proxy)._getMoId_();
 		}
 		
 		return null;
@@ -113,6 +111,7 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 
 		ProxyFactory factory = new ProxyFactory();
 		factory.setSuperclass(impl.getClass());
+		factory.setInterfaces(new Class<?>[]{ManagedObject.class});
 		T proxy;
 		try {
 			proxy = (T) factory.create(new Class[0], new Object[0], handler);
@@ -172,6 +171,10 @@ class InvokeHandler<T> implements MethodHandler {
 
 	private T proxy;
 
+	private static final Method getIdMethod = Unchecker.uncheck(() -> {
+		return ManagedObject.class.getMethod("_getMoId_", new Class[0]);
+	});
+	
 	@SuppressWarnings("unchecked")
 	public InvokeHandler(int id, T impl, AbstractGameEngine gameEngine) {
 		super();
@@ -202,6 +205,12 @@ class InvokeHandler<T> implements MethodHandler {
 
 	@Override
 	public Object invoke(Object self, Method thisMethod, Method proceed, Object[] args) throws Throwable {
+		// handle generic ManagedObject-interface methods
+		if (thisMethod.equals(getIdMethod)) {
+			return id;
+		}
+		
+		// handle events
 		return handleEvent(gameEngine.serverTime(),
 				clazz.getMethod(thisMethod.getName(), thisMethod.getParameterTypes()), args, true);
 	}
@@ -245,5 +254,4 @@ class InvokeHandler<T> implements MethodHandler {
 	public int getId() {
 		return id;
 	}
-
 }

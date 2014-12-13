@@ -110,11 +110,11 @@ public class AbstractGameEngineTest {
 	}
 	
 	private void assertIsProxied(Object proxy) {
-		Assert.assertTrue(proxy.getClass().getName().contains("$$_javassist"));
+		Assert.assertTrue(proxy instanceof ManagedObject);
 		Assert.assertTrue(client.getIdForProxy(proxy) != null);
 	}
 	private void assertIsNotProxied(Object proxy) {
-		Assert.assertFalse(proxy.getClass().getName().contains("$$_javassist"));
+		Assert.assertFalse(proxy instanceof ManagedObject);
 		Assert.assertFalse(client.getIdForProxy(proxy) != null);
 	}
 }
