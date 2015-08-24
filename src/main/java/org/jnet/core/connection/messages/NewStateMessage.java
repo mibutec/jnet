@@ -5,14 +5,14 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jnet.core.AbstractGameEngine;
-import org.jnet.core.helper.BeanHelper;
+import org.jnet.core.ManagedObject;
+import org.jnet.core.MetaData;
+import org.jnet.core.MetaDataManager;
 
 public class NewStateMessage extends AbstractMessage {
 	private static final Logger logger = LogManager.getLogger(NewStateMessage.class);
@@ -21,18 +21,18 @@ public class NewStateMessage extends AbstractMessage {
 	
 	private int ts;
 	
-	private MetaData metaData;
+	private MetaDataManager metaDataManager;
 	
-	private AbstractGameEngine gameEngine;
+	private MetaData metaData;
 	
 	private Map<Field, Object> state = new HashMap<>();
 	
-	public NewStateMessage(int id, int ts, Object state) {
+	public NewStateMessage(int id, int ts, ManagedObject<?> state) {
 		super();
 		this.id = id;
 		this.ts = ts;
+		this.metaData = state._getMoMetaData_();
 		try {
-			metaData = new MetaData(state);
 			for (Field field : metaData.getFields()) {
 				this.state.put(field, field.get(state));
 			}
@@ -40,27 +40,19 @@ public class NewStateMessage extends AbstractMessage {
 			throw new RuntimeException(e);
 		}
 	}
-
-	public NewStateMessage(AbstractGameEngine gameEngine) {
-		super();
-		this.gameEngine = gameEngine;
-	}
-	
-	@Override
-	public String toString() {
-		return "NewStateMessage [id=" + id + ", ts=" + ts + ", metaData=" + metaData + "]";
-	}
 	
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((gameEngine == null) ? 0 : gameEngine.hashCode());
 		result = prime * result + id;
-		result = prime * result + ((metaData == null) ? 0 : metaData.hashCode());
+		result = prime * result + ((metaDataManager == null) ? 0 : metaDataManager.hashCode());
+		result = prime * result + ((state == null) ? 0 : state.hashCode());
 		result = prime * result + ts;
 		return result;
 	}
+
+
 
 	@Override
 	public boolean equals(Object obj) {
@@ -71,23 +63,34 @@ public class NewStateMessage extends AbstractMessage {
 		if (getClass() != obj.getClass())
 			return false;
 		NewStateMessage other = (NewStateMessage) obj;
-		if (gameEngine == null) {
-			if (other.gameEngine != null)
-				return false;
-		} else if (!gameEngine.equals(other.gameEngine))
-			return false;
 		if (id != other.id)
 			return false;
-		if (metaData == null) {
-			if (other.metaData != null)
+		if (metaDataManager == null) {
+			if (other.metaDataManager != null)
 				return false;
-		} else if (!metaData.equals(other.metaData))
+		} else if (!metaDataManager.equals(other.metaDataManager))
+			return false;
+		if (state == null) {
+			if (other.state != null)
+				return false;
+		} else if (!state.equals(other.state))
 			return false;
 		if (ts != other.ts)
 			return false;
 		return true;
 	}
 
+	@Override
+	public String toString() {
+		return "NewStateMessage [id=" + id + ", ts=" + ts + ", metaDataManager=" + metaDataManager + ", state=" + state
+				+ "]";
+	}
+
+	public NewStateMessage(MetaDataManager metaDataManager) {
+		super();
+		this.metaDataManager = metaDataManager;
+	}
+	
 	@Override
 	public void write(DataOutputStream out) throws Exception {
 		out.writeInt(id);
@@ -132,10 +135,6 @@ public class NewStateMessage extends AbstractMessage {
 		}
 	}
 	
-	public void setGameEngine(AbstractGameEngine gameEngine) {
-		this.gameEngine = gameEngine;
-	}
-
 	@Override
 	public void read(DataInputStream in) throws Exception {
 		id = in.readInt();
@@ -191,65 +190,5 @@ public class NewStateMessage extends AbstractMessage {
 
 	public Map<Field, Object> getStateAsMap() {
 		return state;
-	}
-}
-
-class MetaData {
-	private final List<Field> fields = new LinkedList<>();
-
-	private int nullableCount;
-	
-	public MetaData(Object o) throws Exception {
-		BeanHelper.forEachRelevantField(o, field -> {
-			if (BeanHelper.isPrimitive(field.getType())) {
-				fields.add(field);
-				if (field.getType().isPrimitive()) {
-					nullableCount++;
-				}
-			}
-		});
-	}
-	
-	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((fields == null) ? 0 : fields.hashCode());
-		result = prime * result + nullableCount;
-		return result;
-	}
-
-
-
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		MetaData other = (MetaData) obj;
-		if (fields == null) {
-			if (other.fields != null)
-				return false;
-		} else if (!fields.equals(other.fields))
-			return false;
-		if (nullableCount != other.nullableCount)
-			return false;
-		return true;
-	}
-
-
-
-	@Override
-	public String toString() {
-		return "MetaData [fields=" + fields + ", nullableCount=" + nullableCount + "]";
-	}
-
-
-
-	public List<Field> getFields() {
-		return fields;
 	}
 }

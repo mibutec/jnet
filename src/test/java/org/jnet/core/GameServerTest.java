@@ -80,6 +80,6 @@ public class GameServerTest implements Sleep {
 		int id = server.getIdForProxy(state);
 
 		state.gotoX(1000);
-		Mockito.verify(ctc, Mockito.times(1)).send(new NewStateMessage(id, 0, state));
+		Mockito.verify(ctc, Mockito.times(1)).send(new NewStateMessage(id, 0, (ManagedObject) state));
 	}
 }

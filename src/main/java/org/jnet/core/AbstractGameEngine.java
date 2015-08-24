@@ -28,7 +28,7 @@ import org.jnet.core.helper.BeanHelper;
 public abstract class AbstractGameEngine implements AutoCloseable {
 	private static final Logger logger = LogManager.getLogger(AbstractGameEngine.class);
 	
-	protected final Map<Integer, InvokeHandler<?>> handlers = new HashMap<>();
+	protected final Map<Integer, ManagedObject<?>> handlers = new HashMap<>();
 
 	private AtomicInteger idGenerator = new AtomicInteger(0);
 	
@@ -39,7 +39,7 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 
 	public Integer getIdForProxy(Object proxy) {
 		if (proxy instanceof ManagedObject) {
-			return ((ManagedObject) proxy)._getMoId_();
+			return ((ManagedObject<?>) proxy)._getMoId_();
 		}
 		
 		return null;
@@ -56,7 +56,7 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 
 	@SuppressWarnings("unchecked")
 	public <T> T getObject(Class<T> clazz, int id) {
-		Object ret = handlers.get(id).getProxy();
+		ManagedObject<T> ret = (ManagedObject<T>) handlers.get(id);
 		if (ret == null) {
 			throw new RuntimeException("no entity found for id " + id);
 		}
@@ -90,15 +90,15 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 	public <T> T createProxy(T impl) throws Exception {
 		logger.info("creating proxy for " + impl);
 		// reuse existing proxies
-		InvokeHandler<T> existingHandler = (InvokeHandler<T>) handlers.values().stream()
-				.filter(v -> v.getLastTrustedState().getState() == impl).findFirst().orElseGet(() -> null);
+		ManagedObject<T> existingHandler = (ManagedObject<T>) handlers.values().stream()
+				.filter(v -> v._getMoWrappedObject_() == impl).findFirst().orElseGet(() -> null);
 
 		if (existingHandler != null) {
-			return existingHandler.getProxy();
+			return (T) existingHandler;
 		}
 
 		// create proxies for all the attributes of that object
-		BeanHelper.forEachRelevantField(impl, field -> {
+		BeanHelper.forEachRelevantField(impl.getClass(), field -> {
 			Object fieldValue = field.get(impl);
 			Object mayBeAProxy = createProxyOrNot(fieldValue);
 			field.set(impl, mayBeAProxy);
@@ -107,7 +107,6 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 		// create proxy for the given object
 		Integer id = idGenerator.addAndGet(1);
 		InvokeHandler<T> handler = new InvokeHandler<>(id, impl, this);
-		handlers.put(id, handler);
 
 		ProxyFactory factory = new ProxyFactory();
 		factory.setSuperclass(impl.getClass());
@@ -118,7 +117,7 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
-		handler.setProxy(proxy);
+		handlers.put(id, (ManagedObject<T>) proxy);
 		
 		return proxy;
 	}
@@ -168,8 +167,6 @@ class InvokeHandler<T> implements MethodHandler {
 	private final AbstractGameEngine gameEngine;
 
 	private List<Event<T>> sortedEvents = new LinkedList<>();
-
-	private T proxy;
 
 	private static final Method getIdMethod = Unchecker.uncheck(() -> {
 		return ManagedObject.class.getMethod("_getMoId_", new Class[0]);
@@ -241,14 +238,6 @@ class InvokeHandler<T> implements MethodHandler {
 
 	private void resetLatestState() {
 		latestState = lastTrustedState.clone();
-	}
-
-	public T getProxy() {
-		return proxy;
-	}
-
-	public void setProxy(T proxy) {
-		this.proxy = proxy;
 	}
 
 	public int getId() {

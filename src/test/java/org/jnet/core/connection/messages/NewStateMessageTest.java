@@ -8,6 +8,7 @@ import java.util.Map;
 import junit.framework.Assert;
 
 import org.jnet.core.GameClient;
+import org.jnet.core.ManagedObject;
 import org.jnet.core.connection.Connection;
 import org.jnet.core.testdata.FigureState;
 import org.jnet.core.testdata.Hochhaus;
@@ -78,7 +79,7 @@ public class NewStateMessageTest {
 	
 	private Map<Field, Object> serialize(Object state) throws Exception {
 		int id = client.getIdForProxy(client.createProxy(state));
-		NewStateMessage message = new NewStateMessage(id, 0, state);
+		NewStateMessage message = new NewStateMessage(id, 0, (ManagedObject) state);
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		message.write(baos);
 		message = new NewStateMessage(client);

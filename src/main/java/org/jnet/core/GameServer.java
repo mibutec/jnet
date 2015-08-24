@@ -87,7 +87,7 @@ public class GameServer extends AbstractGameEngine {
 		logger.debug("distributing event {} with id {} to {} clients", event, id, connections.size());
 		connections.stream().forEach(cc -> {
 			try {
-				cc.send(new NewStateMessage(id, serverTime(), handlers.get(id).getLatestState(serverTime())));
+				cc.send(new NewStateMessage(id, serverTime(), handlers.get(id)));
 			} catch (Exception e) {
 				logger.error("couldn't send new state to client", e);
 			}

@@ -29,7 +29,7 @@ public class BeanHelper {
 	public static<T> T cloneGameObject(T objectToCopy) {
 		try {
 			T ret = (T) objectToCopy.getClass().newInstance();
-			forEachRelevantField(objectToCopy, field -> {
+			forEachRelevantField(objectToCopy.getClass(), field -> {
 				field.set(ret, field.get(objectToCopy));
 			});
 			
@@ -41,8 +41,7 @@ public class BeanHelper {
 		}
 	}
 	
-	public static void forEachField(Object obj, ThrowingConsumer<Field> consumer) throws Exception {
-		Class<?> clazz = obj.getClass();
+	public static void forEachField(Class<?> clazz, ThrowingConsumer<Field> consumer) throws Exception {
 		while (clazz != Object.class) {
 			for (Field field: clazz.getDeclaredFields()) {
 				consumer.consume(field);
@@ -52,8 +51,8 @@ public class BeanHelper {
 		}
 	}
 	
-	public static void forEachRelevantField(Object obj, ThrowingConsumer<Field> consumer) throws Exception {
-		forEachField(obj, field -> {
+	public static void forEachRelevantField(Class<?> clazz, ThrowingConsumer<Field> consumer) throws Exception {
+		forEachField(clazz, field -> {
 			field.setAccessible(true);
 			boolean correctModifiers = !Modifier.isStatic(field.getModifiers()) && !Modifier.isTransient(field.getModifiers());
 			if (correctModifiers) {
