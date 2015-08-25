@@ -3,65 +3,64 @@ package org.jnet.core;
 import java.lang.reflect.Field;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jnet.core.helper.BeanHelper;
 
 public class MetaData {
-	private final List<Field> fields = new LinkedList<>();
+	private final int id;
 
-	private int nullableCount;
+	private final List<Field> fields = new LinkedList<>();
 	
-	public MetaData(Class<?> clazz) throws Exception {
-		BeanHelper.forEachRelevantField(clazz, field -> {
-			if (BeanHelper.isPrimitive(field.getType())) {
-				fields.add(field);
-				if (field.getType().isPrimitive()) {
-					nullableCount++;
+	private final AtomicInteger objectIdGenerator = new AtomicInteger();
+
+	public MetaData(Class<?> clazz, int id) throws RuntimeException {
+		try {
+			BeanHelper.forEachRelevantField(clazz, field -> {
+				if (BeanHelper.isPrimitive(field.getType())) {
+					fields.add(field);
 				}
-			}
-		});
+			});
+		} catch (RuntimeException re) {
+			throw re;
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+		this.id = id;
 	}
-	
+
 	@Override
 	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((fields == null) ? 0 : fields.hashCode());
-		result = prime * result + nullableCount;
-		return result;
+		return Objects.hash(id, fields);
 	}
-
-
 
 	@Override
 	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
+		if (obj == null) {
 			return false;
-		if (getClass() != obj.getClass())
+		}
+		if (getClass() != obj.getClass()) {
 			return false;
-		MetaData other = (MetaData) obj;
-		if (fields == null) {
-			if (other.fields != null)
-				return false;
-		} else if (!fields.equals(other.fields))
-			return false;
-		if (nullableCount != other.nullableCount)
-			return false;
-		return true;
+		}
+		final MetaData other = (MetaData) obj;
+		return Objects.equals(this.id, other.id) && Objects.equals(this.fields, other.fields);
 	}
-
-
 
 	@Override
 	public String toString() {
-		return "MetaData [fields=" + fields + ", nullableCount=" + nullableCount + "]";
+		return "MetaData [fields=" + fields + "]";
 	}
-
-
 
 	public List<Field> getFields() {
 		return fields;
+	}
+
+	public int getId() {
+		return id;
+	}
+	
+	public int nextObjectId() {
+		return objectIdGenerator.incrementAndGet();
 	}
 }

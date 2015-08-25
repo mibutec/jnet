@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import javassist.util.proxy.MethodHandler;
@@ -29,13 +28,19 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 	private static final Logger logger = LogManager.getLogger(AbstractGameEngine.class);
 	
 	protected final Map<Integer, ManagedObject<?>> handlers = new HashMap<>();
-
-	private AtomicInteger idGenerator = new AtomicInteger(0);
 	
+	protected final Map<Integer, InvokeHandler<?>> handlers2 = new HashMap<>();
+	
+	protected final MetaDataManager metaDataManager;
+
 	public abstract String name();
 	
 	abstract protected Set<Connection> getConnections();
 	abstract protected void handleMessage(Message message);
+	
+	protected AbstractGameEngine(MetaDataManager metaDataManager) {
+		this.metaDataManager = metaDataManager;
+	}
 
 	public Integer getIdForProxy(Object proxy) {
 		if (proxy instanceof ManagedObject) {
@@ -68,9 +73,8 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 		return (T) ret;
 	}
 
-	@SuppressWarnings("unchecked")
 	public <T> State<T> getLastTrustedState(Class<T> clazz, int id) {
-		InvokeHandler<T> ret = (InvokeHandler<T>) handlers.get(id);
+		InvokeHandler<T> ret = getHandler(id);
 		if (ret == null) {
 			throw new RuntimeException("no entity found for id " + id);
 		}
@@ -80,6 +84,11 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 		}
 
 		return ret.getLastTrustedState();
+	}
+	
+	@SuppressWarnings("unchecked")
+	protected<T> InvokeHandler<T> getHandler(int objectId) {
+		return (InvokeHandler<T>) handlers2.get(objectId);
 	}
 
 	public abstract int serverTime();
@@ -105,8 +114,8 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 		});
 
 		// create proxy for the given object
-		Integer id = idGenerator.addAndGet(1);
-		InvokeHandler<T> handler = new InvokeHandler<>(id, impl, this);
+		Integer objectId = metaDataManager.createObjectId(impl.getClass());
+		InvokeHandler<T> handler = new InvokeHandler<>(objectId, impl, this);
 
 		ProxyFactory factory = new ProxyFactory();
 		factory.setSuperclass(impl.getClass());
@@ -117,7 +126,8 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
-		handlers.put(id, (ManagedObject<T>) proxy);
+		handlers.put(objectId, (ManagedObject<T>) proxy);
+		handlers2.put(objectId, handler);
 		
 		return proxy;
 	}
@@ -153,12 +163,32 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 			return createProxy(o);
 		}
 	}
+	
+	public MetaDataManager getMetaDataManager() {
+		return metaDataManager;
+	}
 }
 
 class InvokeHandler<T> implements MethodHandler {
+	private static final Method getIdMethod = Unchecker.uncheck(() -> {
+		return ManagedObject.class.getMethod("_getMoId_", new Class[0]);
+	});
+	
+	private static final Method getMetaDataMethod = Unchecker.uncheck(() -> {
+		return ManagedObject.class.getMethod("_getMoMetaData_", new Class[0]);
+	});
+	
+	private static final Method getWrappedObjectMethod = Unchecker.uncheck(() -> {
+		return ManagedObject.class.getMethod("_getMoWrappedObject_", new Class[0]);
+	});
+	
 	private final int id;
 
 	private final Class<T> clazz;
+
+	private final T impl;
+	
+	private final MetaData metaData;
 
 	private State<T> lastTrustedState;
 
@@ -167,16 +197,14 @@ class InvokeHandler<T> implements MethodHandler {
 	private final AbstractGameEngine gameEngine;
 
 	private List<Event<T>> sortedEvents = new LinkedList<>();
-
-	private static final Method getIdMethod = Unchecker.uncheck(() -> {
-		return ManagedObject.class.getMethod("_getMoId_", new Class[0]);
-	});
 	
 	@SuppressWarnings("unchecked")
 	public InvokeHandler(int id, T impl, AbstractGameEngine gameEngine) {
 		super();
 		this.id = id;
 		this.lastTrustedState = new State<T>(impl, 0, (byte) -1);
+		this.impl = impl;
+		this.metaData = gameEngine.getMetaDataManager().get(impl.getClass());
 		resetLatestState();
 		this.clazz = (Class<T>) impl.getClass();
 		this.gameEngine = gameEngine;
@@ -205,6 +233,10 @@ class InvokeHandler<T> implements MethodHandler {
 		// handle generic ManagedObject-interface methods
 		if (thisMethod.equals(getIdMethod)) {
 			return id;
+		} else if (thisMethod.equals(getMetaDataMethod)) {
+			return metaData;
+		} else if (thisMethod.equals(getWrappedObjectMethod)) {
+			return impl;
 		}
 		
 		// handle events

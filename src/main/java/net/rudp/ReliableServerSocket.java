@@ -46,6 +46,9 @@ import java.util.HashMap;
 import net.rudp.impl.SYNSegment;
 import net.rudp.impl.Segment;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /**
  * This class implements server sockets that use
  * the Simple Reliable UDP (RUDP) protocol.
@@ -55,6 +58,8 @@ import net.rudp.impl.Segment;
  */
 public class ReliableServerSocket extends ServerSocket
 {
+	private static final Logger logger = LogManager.getLogger(ReliableServerSocket.class);
+
     /**
      * Creates an unbound RUDP server socket.
      *
@@ -426,7 +431,7 @@ public class ReliableServerSocket extends ServerSocket
 
         protected void log(String msg)
         {
-            System.out.println(getPort() + ": " + msg);
+            logger.info(getPort() + ": " + msg);
         }
 
         private ArrayList _queue;

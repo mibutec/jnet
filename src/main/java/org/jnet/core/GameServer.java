@@ -28,6 +28,7 @@ public class GameServer extends AbstractGameEngine {
 	private final long serverTimeOffset;
 	
 	public GameServer(int acceptedDelay, ServerConnector... connectors) throws IOException {
+		super(new MetaDataManager());
 		this.acceptedDelay = acceptedDelay;
 		this.connections = new HashSet<>();
 		this.connectors = connectors;
@@ -76,7 +77,7 @@ public class GameServer extends AbstractGameEngine {
 			if (event.getTs() < serverTime() - acceptedDelay) {
 				ts = serverTime() - acceptedDelay;
 			}
-			handlers.get(id).handleEvent(ts, event.getEvent(), event.getArgs(), true);
+			getHandler(id).handleEvent(ts, event.getEvent(), event.getArgs(), true);
 		} catch (Throwable e) {
 			e.printStackTrace();
 		}
@@ -84,7 +85,7 @@ public class GameServer extends AbstractGameEngine {
 	
 	@Override
 	public void distributeEvent(int id, Event<?> event) {
-		logger.debug("distributing event {} with id {} to {} clients", event, id, connections.size());
+		logger.debug("distributing result of event {} with id {} to {} clients", event, id, connections.size());
 		connections.stream().forEach(cc -> {
 			try {
 				cc.send(new NewStateMessage(id, serverTime(), handlers.get(id)));

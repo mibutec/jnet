@@ -58,6 +58,9 @@ import net.rudp.impl.SYNSegment;
 import net.rudp.impl.Segment;
 import net.rudp.impl.Timer;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /**
  * This class implements client sockets that use
  * the Simple Reliable UDP (RUDP) protocol for
@@ -68,6 +71,7 @@ import net.rudp.impl.Timer;
  */
 public class ReliableSocket extends Socket
 {
+	private static final Logger logger = LogManager.getLogger(ReliableSocket.class);
     /**
      * Creates an unconnected RUDP socket with default RUDP parameters.
      *
@@ -1743,7 +1747,7 @@ public class ReliableSocket extends Socket
      */
     protected void log(String msg)
     {
-        System.out.println(getLocalPort() + ": " + msg);
+        logger.info(getLocalPort() + ": " + msg);
     }
 
     /**

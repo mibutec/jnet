@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jnet.core.AbstractGameEngine;
+import org.jnet.core.MetaDataManager;
 import org.jnet.core.connection.messages.EventMessage;
 import org.jnet.core.connection.messages.MapMessage;
 import org.jnet.core.connection.messages.Message;
@@ -94,8 +95,8 @@ public abstract class AbstractConnection implements Connection, Runnable {
 				
 				Message message;
 				try {
-					Constructor<? extends Message> constructor = messageClass.getConstructor(new Class<?>[]{AbstractGameEngine.class});
-					message = constructor.newInstance(new Object[] {gameEngine});
+					Constructor<? extends Message> constructor = messageClass.getConstructor(new Class<?>[]{MetaDataManager.class});
+					message = constructor.newInstance(new Object[] {gameEngine.getMetaDataManager()});
 				} catch (Exception e) {
 					message = messageClass.newInstance();
 				}

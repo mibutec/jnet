@@ -6,7 +6,10 @@
 		</Console>
 	</Appenders>
 	<Loggers>
-		<Root level="trace">
+		<Logger name="net.rudp" level="warn" additivity="false">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Root level="debug">
 			<AppenderRef ref="Console" />
 		</Root>
 	</Loggers>

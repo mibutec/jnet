@@ -24,7 +24,7 @@ public class GameClient extends AbstractGameEngine {
 	private long serverTimeVariation = Long.MAX_VALUE;
 	
 	public GameClient(Connection connection) {
-		super();
+		super(new MetaDataManager());
 		this.connection = connection;
 		this.serverTimeOffset = System.currentTimeMillis();
 		connection.setGameEngine(this);
@@ -65,7 +65,7 @@ public class GameClient extends AbstractGameEngine {
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void handleNewState(int id, int ts, Map<Field, Object> state) {
 		try {
-			InvokeHandler<?> handler = handlers.get(id);
+			InvokeHandler<?> handler = getHandler(id);
 			((InvokeHandler) handler).newState(ts, state);
 		} catch (Exception e) {
 			logger.error("state {} with id {} could not be updated", state, id, e);
@@ -92,7 +92,7 @@ public class GameClient extends AbstractGameEngine {
 			calibrateServerTime(trMessage.getClientTimestamp(), trMessage.getServerTime());
 		} else if (message instanceof NewStateMessage) {
 			NewStateMessage nsMessage = (NewStateMessage) message;
-			handleNewState(nsMessage.getId(), nsMessage.getTs(), nsMessage.getStateAsMap());
+			handleNewState(nsMessage.getObjectId(), nsMessage.getTs(), nsMessage.getStateAsMap());
 		} else {
 			logger.error("unknown messageType arrived on {}, type = {}", name(), message);
 		}

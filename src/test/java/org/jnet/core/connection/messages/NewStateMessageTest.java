@@ -79,10 +79,10 @@ public class NewStateMessageTest {
 	
 	private Map<Field, Object> serialize(Object state) throws Exception {
 		int id = client.getIdForProxy(client.createProxy(state));
-		NewStateMessage message = new NewStateMessage(id, 0, (ManagedObject) state);
+		NewStateMessage message = new NewStateMessage(id, 0, (ManagedObject<?>) state);
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		message.write(baos);
-		message = new NewStateMessage(client);
+		message = new NewStateMessage(client.getMetaDataManager());
 		message.read(new ByteArrayInputStream(baos.toByteArray()));
 		return message.getStateAsMap();
 		
