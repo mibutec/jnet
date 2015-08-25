@@ -9,6 +9,9 @@
 		<Logger name="net.rudp" level="warn" additivity="false">
 			<AppenderRef ref="Console" />
 		</Logger>
+		<Logger name="org.jnet.core.RetryService" level="warn" additivity="false">
+			<AppenderRef ref="Console" />
+		</Logger>
 		<Root level="debug">
 			<AppenderRef ref="Console" />
 		</Root>

@@ -14,6 +14,8 @@ public class MetaData {
 	private final List<Field> fields = new LinkedList<>();
 	
 	private final AtomicInteger objectIdGenerator = new AtomicInteger();
+	
+	private final Class<?> clazz;
 
 	public MetaData(Class<?> clazz, int id) throws RuntimeException {
 		try {
@@ -28,6 +30,7 @@ public class MetaData {
 			throw new RuntimeException(e);
 		}
 		this.id = id;
+		this.clazz = clazz;
 	}
 
 	@Override
@@ -49,7 +52,9 @@ public class MetaData {
 
 	@Override
 	public String toString() {
-		return "MetaData [fields=" + fields + "]";
+		return "MetaData [id=" + id + ", fields=" + fields
+				+ ", objectIdGenerator=" + objectIdGenerator + ", clazz="
+				+ clazz + "]";
 	}
 
 	public List<Field> getFields() {
@@ -62,5 +67,9 @@ public class MetaData {
 	
 	public int nextObjectId() {
 		return objectIdGenerator.incrementAndGet();
+	}
+
+	public Class<?> getClazz() {
+		return clazz;
 	}
 }

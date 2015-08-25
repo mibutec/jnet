@@ -19,7 +19,6 @@ import javassist.util.proxy.ProxyFactory;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jala.mixins.Unchecker;
 import org.jnet.core.connection.Connection;
 import org.jnet.core.connection.messages.Message;
 import org.jnet.core.helper.BeanHelper;
@@ -100,9 +99,10 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 		logger.info("creating proxy for " + impl);
 		// reuse existing proxies
 		ManagedObject<T> existingHandler = (ManagedObject<T>) handlers.values().stream()
-				.filter(v -> v._getMoWrappedObject_() == impl).findFirst().orElseGet(() -> null);
+				.filter(v -> v._getMoLastTrustedState_() == impl).findFirst().orElseGet(() -> null);
 
 		if (existingHandler != null) {
+			System.out.println(existingHandler);
 			return (T) existingHandler;
 		}
 
@@ -178,16 +178,16 @@ class InvokeHandler<T> implements MethodHandler {
 		return ManagedObject.class.getMethod("_getMoMetaData_", new Class[0]);
 	});
 	
-	private static final Method getWrappedObjectMethod = Unchecker.uncheck(() -> {
-		return ManagedObject.class.getMethod("_getMoWrappedObject_", new Class[0]);
+	private static final Method getMoLatestStateMethod = Unchecker.uncheck(() -> {
+		return ManagedObject.class.getMethod("_getMoLatestState_", new Class[0]);
+	});
+	
+	private static final Method getMoLastTrustedStateMethod = Unchecker.uncheck(() -> {
+		return ManagedObject.class.getMethod("_getMoLastTrustedState_", new Class[0]);
 	});
 	
 	private final int id;
 
-	private final Class<T> clazz;
-
-	private final T impl;
-	
 	private final MetaData metaData;
 
 	private State<T> lastTrustedState;
@@ -198,15 +198,12 @@ class InvokeHandler<T> implements MethodHandler {
 
 	private List<Event<T>> sortedEvents = new LinkedList<>();
 	
-	@SuppressWarnings("unchecked")
 	public InvokeHandler(int id, T impl, AbstractGameEngine gameEngine) {
 		super();
 		this.id = id;
 		this.lastTrustedState = new State<T>(impl, 0, (byte) -1);
-		this.impl = impl;
 		this.metaData = gameEngine.getMetaDataManager().get(impl.getClass());
 		resetLatestState();
-		this.clazz = (Class<T>) impl.getClass();
 		this.gameEngine = gameEngine;
 	}
 
@@ -225,6 +222,8 @@ class InvokeHandler<T> implements MethodHandler {
 	private void addEvent(Event<T> event) {
 		sortedEvents.add(event);
 		Collections.sort(sortedEvents);
+		
+		// TODO: muss der reset immer erfolgen, oder nur wenn event.ts < lateststate.ts?
 		resetLatestState();
 	}
 
@@ -235,13 +234,15 @@ class InvokeHandler<T> implements MethodHandler {
 			return id;
 		} else if (thisMethod.equals(getMetaDataMethod)) {
 			return metaData;
-		} else if (thisMethod.equals(getWrappedObjectMethod)) {
-			return impl;
+		} else if (thisMethod.equals(getMoLatestStateMethod)) {
+			return getLatestState(gameEngine.serverTime());
+		} else if (thisMethod.equals(getMoLastTrustedStateMethod)) {
+			return getLastTrustedState().getState();
 		}
 		
 		// handle events
 		return handleEvent(gameEngine.serverTime(),
-				clazz.getMethod(thisMethod.getName(), thisMethod.getParameterTypes()), args, true);
+				metaData.getClazz().getMethod(thisMethod.getName(), thisMethod.getParameterTypes()), args, true);
 	}
 
 	public Object handleEvent(int eventTime, Method implMethod, Object[] args, boolean doDistribute) throws Throwable {

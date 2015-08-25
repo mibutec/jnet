@@ -88,7 +88,8 @@ public class GameServer extends AbstractGameEngine {
 		logger.debug("distributing result of event {} with id {} to {} clients", event, id, connections.size());
 		connections.stream().forEach(cc -> {
 			try {
-				cc.send(new NewStateMessage(id, serverTime(), handlers.get(id)));
+				ManagedObject<?> mo = handlers.get(id);
+				cc.send(new NewStateMessage(id, serverTime(), mo._getMoMetaData_(), mo._getMoLatestState_()));
 			} catch (Exception e) {
 				logger.error("couldn't send new state to client", e);
 			}
@@ -120,7 +121,6 @@ public class GameServer extends AbstractGameEngine {
 			} catch (Exception e) {
 				logger.error("error closing resource", e);
 			}
-		});;
-
+		});
 	}
 }

@@ -4,7 +4,7 @@ import java.net.InetSocketAddress;
 
 import junit.framework.Assert;
 
-import org.jala.mixins.Eventually;
+import org.jnet.core.Eventually;
 import org.jnet.core.GameClient;
 import org.jnet.core.GameServer;
 import org.jnet.core.connection.impl.RudpConnection;
@@ -44,9 +44,9 @@ public class WanConnectionTest implements Eventually {
 	
 	@After
 	public void tearDown() throws Exception {
-		if (server != null) server.close();
-		if (client != null) client.close();
-		if (emu != null) emu.stopEmulation();
+		server.close();
+		client.close();
+		emu.stopEmulation();
 	}
 
 	@Test

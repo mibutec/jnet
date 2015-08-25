@@ -69,17 +69,17 @@ public class NewStateMessageTest {
 	@Test
 	public void testSerializationOfString() throws Exception {
 		FigureState state = new FigureState();
-		state.setaString("Michaeläöü");
+		state.setaString("Michaelï¿½ï¿½ï¿½");
 
 		Map<Field, Object> map = serialize(state);
 
-		Assert.assertEquals("Michaeläöü", map.get(FigureState.class.getDeclaredField("aString")));
+		Assert.assertEquals("Michaelï¿½ï¿½ï¿½", map.get(FigureState.class.getDeclaredField("aString")));
 	}
 
 	
 	private Map<Field, Object> serialize(Object state) throws Exception {
 		int id = client.getIdForProxy(client.createProxy(state));
-		NewStateMessage message = new NewStateMessage(id, 0, (ManagedObject<?>) state);
+		NewStateMessage message = new NewStateMessage(id, 0, client.getMetaDataManager().get(state.getClass()), state);
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		message.write(baos);
 		message = new NewStateMessage(client.getMetaDataManager());

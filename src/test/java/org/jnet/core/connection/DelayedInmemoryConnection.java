@@ -6,8 +6,8 @@ import java.io.OutputStream;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import org.jala.mixins.Sleep;
-import org.jala.mixins.Unchecker;
+import org.jnet.core.Sleep;
+import org.jnet.core.Unchecker;
 
 public class DelayedInmemoryConnection extends AbstractConnection implements Sleep {
 	private long delay;

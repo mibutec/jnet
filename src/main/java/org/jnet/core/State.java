@@ -23,7 +23,7 @@ public class State<T> implements Cloneable {
 	}
 	
 	public T updateState(List<Event<T>> events, int now) {
-		events.stream().filter(e -> e.compareTo(timestamp, sequence) == 1 && e.getTs() < now).forEach(e -> {
+		events.stream().filter(e -> e.compareTo(timestamp, sequence) == 1 && e.getTs() <= now).forEach(e -> {
 			try {
 				if (state instanceof UpdateableObject) {
 					long delta = e.getTs() - timestamp;

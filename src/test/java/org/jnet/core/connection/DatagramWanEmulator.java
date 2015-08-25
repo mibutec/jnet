@@ -112,7 +112,7 @@ public class DatagramWanEmulator {
      * a value of 1.0f means every packet will be lost.
      * Defaults to 0.1f (10%).
      */
-    private volatile float packageLoss = 0.10f;
+    private volatile float packageLoss = 0.0f;
 
     /**
      * The chance of a packet being duplicated. A value of 0.0f means no
@@ -263,7 +263,7 @@ public class DatagramWanEmulator {
                     else if (socketAddressB.equals(packet.getSocketAddress()))
                         packet.setSocketAddress(socketAddressA);
                     
-                    if (false) {
+                    if (true) {
 	                    SocketAddress to = packet.getSocketAddress();
 	                    System.out.println("sending " + packet.getData().length + " bytes from " + from + " to " + to + " ('" + new String(packet.getData()).trim() + "')");
                     }

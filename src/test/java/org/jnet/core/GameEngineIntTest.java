@@ -2,12 +2,11 @@ package org.jnet.core;
 
 import junit.framework.Assert;
 
-import org.jala.mixins.Eventually;
 import org.jnet.core.connection.DelayedInmemoryConnection;
 import org.jnet.core.testdata.FigureState;
 import org.junit.Test;
 
-public class GameEngineIntTest implements Eventually {
+public class GameEngineIntTest implements Eventually, Sleep {
 	@Test
 	public void testCooperationWithoutDelay() throws Exception {
 		testCooperation(0);

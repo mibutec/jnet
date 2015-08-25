@@ -5,5 +5,7 @@ public interface ManagedObject<T> {
 	
 	MetaData _getMoMetaData_();
 	
-	T _getMoWrappedObject_();
+	T _getMoLatestState_();
+	
+	T _getMoLastTrustedState_();
 }

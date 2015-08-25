@@ -4,7 +4,7 @@ import java.net.InetSocketAddress;
 
 import junit.framework.Assert;
 
-import org.jala.mixins.Eventually;
+import org.jnet.core.Eventually;
 import org.jnet.core.GameClient;
 import org.jnet.core.GameServer;
 import org.jnet.core.connection.impl.RudpConnection;

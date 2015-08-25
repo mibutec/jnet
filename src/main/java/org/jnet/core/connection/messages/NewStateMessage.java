@@ -27,14 +27,14 @@ public class NewStateMessage extends AbstractMessage {
 
 	private Map<Field, Object> state = new HashMap<>();
 
-	public NewStateMessage(int id, int ts, ManagedObject<?> state) {
+	public NewStateMessage(int id, int ts, MetaData metaData, Object actualState) {
 		super();
 		this.objectId = id;
 		this.ts = ts;
-		this.metaData = state._getMoMetaData_();
+		this.metaData = metaData;
 		try {
 			for (Field field : metaData.getFields()) {
-				this.state.put(field, field.get(state));
+				this.state.put(field, field.get(actualState));
 			}
 		} catch (Exception e) {
 			throw new RuntimeException(e);
@@ -68,15 +68,15 @@ public class NewStateMessage extends AbstractMessage {
 
 	@Override
 	public String toString() {
-		return "NewStateMessage [id=" + objectId + ", ts=" + ts + ", metaDataManager=" + metaDataManager + ", state=" + state
-				+ "]";
+		return "NewStateMessage [objectId=" + objectId + ", ts=" + ts
+				+ ", metaDataManager=" + metaDataManager + ", metaData="
+				+ metaData + ", state=" + state + "]";
 	}
 
 	@Override
 	public void write(DataOutputStream out) throws Exception {
 		out.writeInt(objectId);
 		out.writeInt(ts);
-		System.out.println(state);
 		for (Field field : metaData.getFields()) {
 			writePrimitveToStream(field.getType(), state.get(field), out);
 		}
