@@ -1,6 +1,6 @@
-package org.jnet.core;
+package org.jnet.core.tools;
 
-import org.jnet.core.RetryService.RunnableWithThrowable;
+import org.jnet.core.tools.RetryService.RunnableWithThrowable;
 
 public interface Eventually {
 	@SuppressWarnings("unchecked")

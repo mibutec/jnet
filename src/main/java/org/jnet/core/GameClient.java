@@ -4,31 +4,59 @@ import java.lang.reflect.Field;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.MapMessage;
 import org.jnet.core.connection.Connection;
 import org.jnet.core.connection.messages.EventMessage;
 import org.jnet.core.connection.messages.Message;
 import org.jnet.core.connection.messages.NewStateMessage;
 import org.jnet.core.connection.messages.TimeResponseMessage;
+import org.jnet.core.synchronizer.Event;
+import org.jnet.core.synchronizer.MetaDataManager;
+import org.jnet.core.synchronizer.ObjectId;
 
 
-public class GameClient extends AbstractGameEngine {
+public class GameClient<MAIN_ENTITY> extends AbstractGameEngine {
 	private static final Logger logger = LogManager.getLogger(GameClient.class);
 	
-	private final Connection connection;
+	private Connection connection;
 	
 	private long serverTimeOffset;
 	
 	private long serverTimeVariation = Long.MAX_VALUE;
 	
-	public GameClient(Connection connection) {
+	private final ExecutorService executorService = Executors.newFixedThreadPool(4);
+	
+//	private Future<MAIN_ENTITY> mainEntity;
+	
+	public GameClient() {
 		super(new MetaDataManager());
-		this.connection = connection;
 		this.serverTimeOffset = System.currentTimeMillis();
-		connection.setGameEngine(this);
 	}
+	
+	@SuppressWarnings("unchecked")
+	public void connect(Connection connection) {
+		this.connection = connection;
+//		mainEntity = executorService.submit(() -> {
+//			Message message = connection.waitForMessage(5000);
+//			if (message instanceof MapMessage) {
+//				MapMessage mapMessage = (MapMessage) message;
+//				return (MAIN_ENTITY) mapMessage.get("mainEntity");
+//			} else {
+//				throw new RuntimeException("connection failed, didn't receive initial state");
+//			}
+//		});
+	}
+	
+//	public MAIN_ENTITY getMainEntity() {
+//		return Unchecker.uncheck(() -> mainEntity.get(5000, TimeUnit.MILLISECONDS));
+//	}
 	
 	@Override
 	public String name() {
@@ -54,16 +82,16 @@ public class GameClient extends AbstractGameEngine {
 	}
 	
 	@Override
-	protected void distributeEvent(int id, Event<?> event) {
+	protected void distributeEvent(Event event) {
 		try {
-			connection.send(new EventMessage(id, event));
+			connection.send(new EventMessage(event));
 		} catch (Exception e) {
-			logger.error("event {} with id {} could not be distributed", event, id, e);
+			logger.error("event {} with id {} could not be distributed", event, e);
 		}
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public void handleNewState(int id, int ts, Map<Field, Object> state) {
+	public void handleNewState(ObjectId id, int ts, Map<Field, Object> state) {
 		try {
 			InvokeHandler<?> handler = getHandler(id);
 			((InvokeHandler) handler).newState(ts, state);
@@ -75,6 +103,7 @@ public class GameClient extends AbstractGameEngine {
 	@Override
 	public void close() throws Exception {
 		connection.close();
+		executorService.shutdown();
 	}
 
 	@Override

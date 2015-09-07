@@ -7,34 +7,31 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.lang.reflect.Method;
 
-import org.jnet.core.Event;
+import org.jnet.core.synchronizer.Event;
+import org.jnet.core.synchronizer.ObjectId;
 
 public class EventMessage extends AbstractMessage {
-	private Event<?> event;
-	
-	private int id;
+	private Event event;
 	
 	public EventMessage() {
 		super();
 	}
 
-	public EventMessage(int id, Event<?> event) {
+	public EventMessage(Event event) {
 		super();
 		this.event = event;
-		this.id = id;
 	}
 	
 	@Override
 	public String toString() {
-		return "EventMessage [event=" + event + ", id=" + id + "]";
+		return "EventMessage [event=" + event + "]";
 	}
 
 	@Override
 	public void write(DataOutputStream outStream) throws IOException {
 		ObjectOutputStream out = new ObjectOutputStream(outStream);
-		out.writeInt(id);
+		event.getObjectId().toStream(outStream);
 		out.writeInt(event.getTs());
-		out.writeByte(event.getTs());
 		out.writeObject(event.getEvent().getDeclaringClass().getName());
 		out.writeObject(event.getEvent().getName());
 		out.writeObject(event.getEvent().getParameterTypes());
@@ -44,23 +41,18 @@ public class EventMessage extends AbstractMessage {
 	@Override
 	public void read(DataInputStream inStream) throws Exception {
 		ObjectInputStream in = new ObjectInputStream(inStream);
-		id = in.readInt();
+		ObjectId id = ObjectId.fromStream(inStream);
 		int ts = in.readInt();
-		byte sequence = in.readByte();
 		String classname = (String) in.readObject();
 		String methodName = (String) in.readObject();
 		Class<?>[] parameterTypes = (Class<?>[]) in.readObject();
 		Method method = Class.forName(classname).getDeclaredMethod(methodName, parameterTypes);
 		Object[] args = (Object[]) in.readObject();
 		
-		event = new Event<Object>(ts, sequence, method, args);
+		event = new Event(id, ts, method, args);
 	}
 
-	public Event<?> getEvent() {
+	public Event getEvent() {
 		return event;
-	}
-
-	public int getId() {
-		return id;
 	}
 }

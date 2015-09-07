@@ -1,29 +1,26 @@
-package org.jnet.core;
+package org.jnet.core.synchronizer;
 
 import java.util.List;
 
-import org.jnet.core.helper.BeanHelper;
+import org.jnet.core.UpdateableObject;
 
 public class State<T> implements Cloneable {
 	private final T state;
 	
 	private int timestamp;
-	
-	private byte sequence;
 
-	public State(T state, int timestamp, byte sequence) {
+	public State(T state, int timestamp) {
 		super();
 		this.state = state;
 		this.timestamp = timestamp;
-		this.sequence = sequence;
 	}
 	
-	public State<T> clone() {
-		return new State<T>(BeanHelper.cloneGameObject(state), timestamp, sequence);
+	public State<T> clone(CloneStrategy strategy) {
+		return new State<T>(strategy.clone(state), timestamp);
 	}
 	
-	public T updateState(List<Event<T>> events, int now) {
-		events.stream().filter(e -> e.compareTo(timestamp, sequence) == 1 && e.getTs() <= now).forEach(e -> {
+	public T updateState(List<Event> events, int now) {
+		events.stream().sorted().filter(e -> e.getTs() >= timestamp && e.getTs() <= now).forEach(e -> {
 			try {
 				if (state instanceof UpdateableObject) {
 					long delta = e.getTs() - timestamp;
@@ -31,7 +28,6 @@ public class State<T> implements Cloneable {
 						((UpdateableObject) state).update(delta);
 					}
 					timestamp = e.getTs();
-					sequence = e.getSequence();
 				}
 				
 				e.getEvent().invoke(state, e.getArgs());
@@ -53,7 +49,7 @@ public class State<T> implements Cloneable {
 	
 	@Override
 	public String toString() {
-		return "State [state=" + state + ", timestamp=" + timestamp + ", sequence=" + sequence + "]";
+		return "State [state=" + state + ", timestamp=" + timestamp + "]";
 	}
 
 	public T getState() {
@@ -66,13 +62,5 @@ public class State<T> implements Cloneable {
 
 	public void setTimestamp(int timestamp) {
 		this.timestamp = timestamp;
-	}
-
-	public byte getSequence() {
-		return sequence;
-	}
-
-	public void setSequence(byte sequence) {
-		this.sequence = sequence;
 	}
 }

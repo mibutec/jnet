@@ -10,6 +10,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.jnet.core.GameServer;
 import org.jnet.core.connection.ServerConnector;
+import org.jnet.core.helper.Unchecker;
 
 public class RudpServerConnector implements ServerConnector, Runnable {
 	private static final Logger logger = LogManager.getLogger(RudpServerConnector.class);
@@ -27,11 +28,13 @@ public class RudpServerConnector implements ServerConnector, Runnable {
 	}
 
 	@Override
-	public void setGameServer(GameServer server) throws IOException {
-		this.server = server;
-		this.serverSocket = new ReliableServerSocket(port);
-		new Thread(this).start();
-		logger.info("opened RudpServerSocket on port {}", port);
+	public void setGameServer(GameServer server) {
+		Unchecker.uncheck(() -> {
+			this.server = server;
+			this.serverSocket = new ReliableServerSocket(port);
+			new Thread(this).start();
+			logger.info("opened RudpServerSocket on port {}", port);
+		});
 	}
 
 	@Override
@@ -40,7 +43,7 @@ public class RudpServerConnector implements ServerConnector, Runnable {
 		while (!serverSocket.isClosed()) {
 			try {
 				Socket clientSocket = serverSocket.accept();
-				server.addConnetion(new RudpConnection(clientSocket));
+				server.addConnetion(new RudpConnection(server, clientSocket));
 			} catch (IOException ie) {
 				logger.info("server is closing, serverSocket closed...");
 			} catch (Exception e) {

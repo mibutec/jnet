@@ -4,13 +4,14 @@ import java.net.InetSocketAddress;
 
 import junit.framework.Assert;
 
-import org.jnet.core.Eventually;
 import org.jnet.core.GameClient;
 import org.jnet.core.GameServer;
 import org.jnet.core.connection.impl.RudpConnection;
 import org.jnet.core.connection.impl.RudpServerConnector;
 import org.jnet.core.connection.messages.TimeRequestMessage;
+import org.jnet.core.synchronizer.ObjectId;
 import org.jnet.core.testdata.FigureState;
+import org.jnet.core.tools.Eventually;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -22,14 +23,16 @@ public class RudpConnectionTest implements Eventually {
 	private RudpConnection cts;
 	private GameClient client;
 	private FigureState clientState;
-	private int figureStateId;
+	private ObjectId figureStateId;
 	
 	@Before
 	public void setup() throws Exception {
-		server = new GameServer(new RudpServerConnector(serverAddress.getPort()));
+		server = new GameServer(1500);
+		server.addConnector(new RudpServerConnector(serverAddress.getPort()));
 		server.createProxy(new FigureState());
-		cts = new RudpConnection(serverAddress.getHostName(), serverAddress.getPort());
-		client = new GameClient(cts);
+		client = new GameClient();
+		cts = new RudpConnection(client, serverAddress.getHostName(), serverAddress.getPort());
+		client.connect(cts);
 		clientState = client.createProxy(new FigureState());
 		figureStateId = client.getIdForProxy(clientState);
 	}

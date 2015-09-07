@@ -22,13 +22,20 @@ import org.apache.logging.log4j.Logger;
 import org.jnet.core.connection.Connection;
 import org.jnet.core.connection.messages.Message;
 import org.jnet.core.helper.BeanHelper;
+import org.jnet.core.helper.Unchecker;
+import org.jnet.core.synchronizer.CloneStrategy;
+import org.jnet.core.synchronizer.Event;
+import org.jnet.core.synchronizer.MetaData;
+import org.jnet.core.synchronizer.MetaDataManager;
+import org.jnet.core.synchronizer.ObjectId;
+import org.jnet.core.synchronizer.State;
 
 public abstract class AbstractGameEngine implements AutoCloseable {
 	private static final Logger logger = LogManager.getLogger(AbstractGameEngine.class);
 	
-	protected final Map<Integer, ManagedObject<?>> handlers = new HashMap<>();
+	protected final Map<ObjectId, ManagedObject<?>> handlers = new HashMap<>();
 	
-	protected final Map<Integer, InvokeHandler<?>> handlers2 = new HashMap<>();
+	protected final Map<ObjectId, InvokeHandler<?>> handlers2 = new HashMap<>();
 	
 	protected final MetaDataManager metaDataManager;
 
@@ -41,7 +48,7 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 		this.metaDataManager = metaDataManager;
 	}
 
-	public Integer getIdForProxy(Object proxy) {
+	public ObjectId getIdForProxy(Object proxy) {
 		if (proxy instanceof ManagedObject) {
 			return ((ManagedObject<?>) proxy)._getMoId_();
 		}
@@ -59,7 +66,7 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 	}
 
 	@SuppressWarnings("unchecked")
-	public <T> T getObject(Class<T> clazz, int id) {
+	public <T> T getObject(Class<T> clazz, ObjectId id) {
 		ManagedObject<T> ret = (ManagedObject<T>) handlers.get(id);
 		if (ret == null) {
 			throw new RuntimeException("no entity found for id " + id);
@@ -72,7 +79,7 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 		return (T) ret;
 	}
 
-	public <T> State<T> getLastTrustedState(Class<T> clazz, int id) {
+	public <T> State<T> getLastTrustedState(Class<T> clazz, ObjectId id) {
 		InvokeHandler<T> ret = getHandler(id);
 		if (ret == null) {
 			throw new RuntimeException("no entity found for id " + id);
@@ -86,16 +93,16 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 	}
 	
 	@SuppressWarnings("unchecked")
-	protected<T> InvokeHandler<T> getHandler(int objectId) {
+	protected<T> InvokeHandler<T> getHandler(ObjectId objectId) {
 		return (InvokeHandler<T>) handlers2.get(objectId);
 	}
 
 	public abstract int serverTime();
 
-	protected abstract void distributeEvent(int id, Event<?> event);
+	protected abstract void distributeEvent(Event event);
 
 	@SuppressWarnings("unchecked")
-	public <T> T createProxy(T impl) throws Exception {
+	public <T> T createProxy(T impl) {
 		logger.info("creating proxy for " + impl);
 		// reuse existing proxies
 		ManagedObject<T> existingHandler = (ManagedObject<T>) handlers.values().stream()
@@ -114,7 +121,7 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 		});
 
 		// create proxy for the given object
-		Integer objectId = metaDataManager.createObjectId(impl.getClass());
+		ObjectId objectId = metaDataManager.createObjectId(impl.getClass());
 		InvokeHandler<T> handler = new InvokeHandler<>(objectId, impl, this);
 
 		ProxyFactory factory = new ProxyFactory();
@@ -186,7 +193,7 @@ class InvokeHandler<T> implements MethodHandler {
 		return ManagedObject.class.getMethod("_getMoLastTrustedState_", new Class[0]);
 	});
 	
-	private final int id;
+	private final ObjectId id;
 
 	private final MetaData metaData;
 
@@ -196,12 +203,12 @@ class InvokeHandler<T> implements MethodHandler {
 
 	private final AbstractGameEngine gameEngine;
 
-	private List<Event<T>> sortedEvents = new LinkedList<>();
+	private List<Event> sortedEvents = new LinkedList<>();
 	
-	public InvokeHandler(int id, T impl, AbstractGameEngine gameEngine) {
+	public InvokeHandler(ObjectId id, T impl, AbstractGameEngine gameEngine) {
 		super();
 		this.id = id;
-		this.lastTrustedState = new State<T>(impl, 0, (byte) -1);
+		this.lastTrustedState = new State<T>(impl, 0);
 		this.metaData = gameEngine.getMetaDataManager().get(impl.getClass());
 		resetLatestState();
 		this.gameEngine = gameEngine;
@@ -219,7 +226,7 @@ class InvokeHandler<T> implements MethodHandler {
 		return latestState.updateState(sortedEvents, now);
 	}
 
-	private void addEvent(Event<T> event) {
+	private void addEvent(Event event) {
 		sortedEvents.add(event);
 		Collections.sort(sortedEvents);
 		
@@ -247,14 +254,10 @@ class InvokeHandler<T> implements MethodHandler {
 
 	public Object handleEvent(int eventTime, Method implMethod, Object[] args, boolean doDistribute) throws Throwable {
 		if (implMethod.getAnnotation(Action.class) != null) {
-			byte sequence = 0;
-			if (sortedEvents.size() > 0 && sortedEvents.get(sortedEvents.size() - 1).getTs() == eventTime) {
-				sequence = (byte) (sortedEvents.get(sortedEvents.size() - 1).getSequence() + 1);
-			}
-			Event<T> event = new Event<T>(eventTime, sequence, implMethod, args);
+			Event event = new Event(id, eventTime, implMethod, args);
 			addEvent(event);
 			if (doDistribute) {
-				gameEngine.distributeEvent(id, event);
+				gameEngine.distributeEvent(event);
 			}
 		}
 
@@ -264,16 +267,21 @@ class InvokeHandler<T> implements MethodHandler {
 	public void newState(int ts, Map<Field, Object> state) throws Exception {
 		BeanHelper.merge(state, lastTrustedState.getState());
 		lastTrustedState.setTimestamp(ts);
-		lastTrustedState.setSequence((byte) 0);
 		resetLatestState();
 		sortedEvents = sortedEvents.stream().filter(e -> e.getTs() > ts).collect(Collectors.toList());
 	}
 
 	private void resetLatestState() {
-		latestState = lastTrustedState.clone();
+		latestState = lastTrustedState.clone(new CloneStrategy() {
+			
+			@Override
+			public <C> C clone(C object) {
+				return BeanHelper.cloneGameObject(object);
+			}
+		});
 	}
 
-	public int getId() {
+	public ObjectId getId() {
 		return id;
 	}
 }

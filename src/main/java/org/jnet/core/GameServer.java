@@ -1,7 +1,7 @@
 package org.jnet.core;
 
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -14,6 +14,8 @@ import org.jnet.core.connection.messages.Message;
 import org.jnet.core.connection.messages.NewStateMessage;
 import org.jnet.core.connection.messages.TimeRequestMessage;
 import org.jnet.core.connection.messages.TimeResponseMessage;
+import org.jnet.core.synchronizer.Event;
+import org.jnet.core.synchronizer.MetaDataManager;
 
 
 public class GameServer extends AbstractGameEngine {
@@ -23,23 +25,19 @@ public class GameServer extends AbstractGameEngine {
 	
 	private final int acceptedDelay;
 	
-	private final ServerConnector[] connectors;
+	private final Collection<ServerConnector> connectors = new HashSet<>();
 	
 	private final long serverTimeOffset;
 	
-	public GameServer(int acceptedDelay, ServerConnector... connectors) throws IOException {
+	public GameServer(int acceptedDelay) throws IOException {
 		super(new MetaDataManager());
 		this.acceptedDelay = acceptedDelay;
 		this.connections = new HashSet<>();
-		this.connectors = connectors;
-		for (ServerConnector connector : connectors) {
-			connector.setGameServer(this);
-		}
 		serverTimeOffset = System.currentTimeMillis();
 	}
 	
-	public GameServer(ServerConnector... connectors) throws IOException {
-		this(1500, connectors);
+	public GameServer() throws IOException {
+		this(1500);
 	}
 	
 	@Override
@@ -56,8 +54,8 @@ public class GameServer extends AbstractGameEngine {
 	protected void handleMessage(Message message) {
 		if (message instanceof EventMessage) {
 			EventMessage eventMessage = (EventMessage) message;
-			logger.debug("new event for id {} arrived at server", eventMessage.getId());
-			receiveEvent(eventMessage.getId(), eventMessage.getEvent());
+			logger.debug("new event for id {} arrived at server", eventMessage.getEvent().getObjectId());
+			receiveEvent(eventMessage.getEvent());
 		} else if (message instanceof TimeRequestMessage) {
 			TimeRequestMessage trMessage = (TimeRequestMessage) message;
 			logger.debug("new request for client time arrived at server");
@@ -71,34 +69,38 @@ public class GameServer extends AbstractGameEngine {
 		}
 	}
 	
-	public void receiveEvent(int id, Event<?> event) {
+	public void receiveEvent(Event event) {
 		try {
 			int ts = event.getTs();
 			if (event.getTs() < serverTime() - acceptedDelay) {
 				ts = serverTime() - acceptedDelay;
 			}
-			getHandler(id).handleEvent(ts, event.getEvent(), event.getArgs(), true);
+			getHandler(event.getObjectId()).handleEvent(ts, event.getEvent(), event.getArgs(), true);
 		} catch (Throwable e) {
 			e.printStackTrace();
 		}
 	}
 	
 	@Override
-	public void distributeEvent(int id, Event<?> event) {
-		logger.debug("distributing result of event {} with id {} to {} clients", event, id, connections.size());
+	public void distributeEvent(Event event) {
+		logger.debug("distributing result of event {} with id {} to {} clients", event, event.getObjectId(), connections.size());
 		connections.stream().forEach(cc -> {
 			try {
-				ManagedObject<?> mo = handlers.get(id);
-				cc.send(new NewStateMessage(id, serverTime(), mo._getMoMetaData_(), mo._getMoLatestState_()));
+				ManagedObject<?> mo = handlers.get(event.getObjectId());
+				cc.send(new NewStateMessage(event.getObjectId(), serverTime(), mo._getMoMetaData_(), mo._getMoLatestState_()));
 			} catch (Exception e) {
 				logger.error("couldn't send new state to client", e);
 			}
 		});
 	}
 	
+	public void addConnector(ServerConnector connector) {
+		connectors.add(connector);
+		connector.setGameServer(this);
+	}
+	
 	public void addConnetion(Connection connection) {
 		connections.add(connection);
-		connection.setGameEngine(this);
 	}
 
 	public Set<Connection> getConnections() {
@@ -115,7 +117,7 @@ public class GameServer extends AbstractGameEngine {
 			}
 		});
 		
-		Arrays.asList(connectors).forEach(c -> {
+		connectors.forEach(c -> {
 			try {
 				c.close();
 			} catch (Exception e) {

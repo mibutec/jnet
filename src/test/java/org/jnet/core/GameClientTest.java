@@ -5,6 +5,7 @@ import junit.framework.Assert;
 
 import org.jnet.core.connection.Connection;
 import org.jnet.core.connection.messages.NewStateMessage;
+import org.jnet.core.synchronizer.ObjectId;
 import org.jnet.core.testdata.FigureState;
 import org.junit.Before;
 import org.junit.Test;
@@ -18,19 +19,20 @@ public class GameClientTest {
 	@Before
 	public void setup() {
 		serverTime = 0;
-		client = new GameClient(Mockito.mock(Connection.class)) {
+		client = new GameClient() {
 			@Override
 			public int serverTime() {
 				return serverTime;
 			}
 		};
+		client.connect(Mockito.mock(Connection.class));
 	}
 
 	@Test
 	public void testNewState() throws Exception {
 		// the entity on that we want to test
 		FigureState state = client.createProxy(new FigureState());
-		int id = client.getIdForProxy(state);
+		ObjectId id = client.getIdForProxy(state);
 		
 		// server sends a new state
 		FigureState newState = new FigureState();
@@ -47,7 +49,7 @@ public class GameClientTest {
 	public void testNewStateCanBeOverwritten() throws Exception {
 		// the entity on that we want to test
 		FigureState state = client.createProxy(new FigureState());
-		int id = client.getIdForProxy(state);
+		ObjectId id = client.getIdForProxy(state);
 		
 		// create a new event in eventqueue
 		serverTime = 1000;
@@ -67,7 +69,8 @@ public class GameClientTest {
 	@Test
 	public void testCallsToServer() throws Exception {
 		Connection serverConnection = Mockito.mock(Connection.class);
-		GameClient client = new GameClient(serverConnection);
+		GameClient client = new GameClient();
+		client.connect(serverConnection);
 		FigureState state = client.createProxy(new FigureState());
 		
 		Assert.assertEquals(0.0f, state.getX());

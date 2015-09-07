@@ -10,14 +10,14 @@ import java.util.Objects;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jnet.core.ManagedObject;
-import org.jnet.core.MetaData;
-import org.jnet.core.MetaDataManager;
+import org.jnet.core.synchronizer.MetaData;
+import org.jnet.core.synchronizer.MetaDataManager;
+import org.jnet.core.synchronizer.ObjectId;
 
 public class NewStateMessage extends AbstractMessage {
 	private static final Logger logger = LogManager.getLogger(NewStateMessage.class);
 
-	private int objectId;
+	private ObjectId objectId;
 
 	private int ts;
 
@@ -27,7 +27,7 @@ public class NewStateMessage extends AbstractMessage {
 
 	private Map<Field, Object> state = new HashMap<>();
 
-	public NewStateMessage(int id, int ts, MetaData metaData, Object actualState) {
+	public NewStateMessage(ObjectId id, int ts, MetaData metaData, Object actualState) {
 		super();
 		this.objectId = id;
 		this.ts = ts;
@@ -75,7 +75,7 @@ public class NewStateMessage extends AbstractMessage {
 
 	@Override
 	public void write(DataOutputStream out) throws Exception {
-		out.writeInt(objectId);
+		objectId.toStream(out);
 		out.writeInt(ts);
 		for (Field field : metaData.getFields()) {
 			writePrimitveToStream(field.getType(), state.get(field), out);
@@ -121,7 +121,7 @@ public class NewStateMessage extends AbstractMessage {
 
 	@Override
 	public void read(DataInputStream in) throws Exception {
-		objectId = in.readInt();
+		objectId = ObjectId.fromStream(in);
 		ts = in.readInt();
 		MetaData metaData = metaDataManager.getByObjectId(objectId);
 		for (Field field : metaData.getFields()) {
@@ -164,7 +164,7 @@ public class NewStateMessage extends AbstractMessage {
 		}
 	}
 
-	public int getObjectId() {
+	public ObjectId getObjectId() {
 		return objectId;
 	}
 

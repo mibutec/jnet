@@ -1,4 +1,4 @@
-package org.jnet.core;
+package org.jnet.core.tools;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -23,7 +23,7 @@ public class RetryService implements Sleep {
      * @return result of the callable
      * @throws Propagate Throwable Exception of the last rerun
      */
-    public Object runRetrying(CallableWithThrowable<Object> callable, int maxRetry, int maxTimeoutInMs,
+    public<T> T runRetrying(CallableWithThrowable<T> callable, int maxRetry, int maxTimeoutInMs,
             Class<? extends Throwable>[] caughtExceptions, String methodname, String targetName) {
         long start = System.currentTimeMillis();
         Throwable lastException = null;
@@ -74,7 +74,7 @@ public class RetryService implements Sleep {
      * @return result of the callable
      * @throws Propagate Throwable Exception of the last rerun
      */
-    public Object runRetrying(CallableWithThrowable<Object> callable, int maxRetry, int maxTimeoutInMs,
+    public<T> T runRetrying(CallableWithThrowable<T> callable, int maxRetry, int maxTimeoutInMs,
             Class<? extends Throwable>[] caughtExceptions) {
         String classname = null;
         String methodname = null;
@@ -104,8 +104,8 @@ public class RetryService implements Sleep {
      * @throws Propagate Throwable Exception of the last rerun
      */
     @SuppressWarnings("unchecked")
-    public Object runRetrying(CallableWithThrowable<Object> callable) {
-        return runRetrying(callable, 1, Integer.MAX_VALUE, new Class[] {Exception.class, Error.class});
+    public<T> T runRetrying(CallableWithThrowable<T> callable) {
+        return (T) runRetrying(callable, 1, Integer.MAX_VALUE, new Class[] {Exception.class, Error.class});
     }
 
     /**

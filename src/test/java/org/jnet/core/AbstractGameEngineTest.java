@@ -20,12 +20,13 @@ public class AbstractGameEngineTest {
 	@Before
 	public void setup() {
 		serverTime = 0;
-		client = new GameClient(Mockito.mock(Connection.class)) {
+		client = new GameClient() {
 			@Override
 			public int serverTime() {
 				return serverTime;
 			}
 		};
+		client.connect(Mockito.mock(Connection.class));
 	}
 	
 	@Test

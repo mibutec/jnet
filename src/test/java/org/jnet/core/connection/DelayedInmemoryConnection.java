@@ -6,8 +6,11 @@ import java.io.OutputStream;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import org.jnet.core.Sleep;
-import org.jnet.core.Unchecker;
+import org.jnet.core.AbstractGameEngine;
+import org.jnet.core.GameClient;
+import org.jnet.core.GameServer;
+import org.jnet.core.helper.Unchecker;
+import org.jnet.core.tools.Sleep;
 
 public class DelayedInmemoryConnection extends AbstractConnection implements Sleep {
 	private long delay;
@@ -21,7 +24,7 @@ public class DelayedInmemoryConnection extends AbstractConnection implements Sle
 		public synchronized int read() throws IOException {
 			return Unchecker.uncheck(() -> {
 				ByteWithTimestamp bwts = queue.peek();
-				while (bwts == null || bwts.getTs() >= System.currentTimeMillis() + delay) {
+				while (bwts == null || bwts.getTs() + delay >= System.currentTimeMillis()) {
 					sleep(50);
 					bwts = queue.peek();
 				}
@@ -51,8 +54,10 @@ public class DelayedInmemoryConnection extends AbstractConnection implements Sle
 		return outputStream;
 	}
 	
-	public DelayedInmemoryConnection(long delay) {
+	public DelayedInmemoryConnection(AbstractGameEngine gameEngine, long delay) {
+		super(gameEngine);
 		this.delay = delay;
+		startListening();
 	}
 	
 	public void setConterpart(DelayedInmemoryConnection connection) {
@@ -67,6 +72,15 @@ public class DelayedInmemoryConnection extends AbstractConnection implements Sle
 	@Override
 	protected boolean isClosed() {
 		return false;
+	}
+	
+	public static DelayedInmemoryConnection createInMemoryConnections(GameServer server, GameClient client, int delay) {
+		DelayedInmemoryConnection c1 = new DelayedInmemoryConnection(server, delay);
+		DelayedInmemoryConnection c2 = new DelayedInmemoryConnection(client, delay);
+		c1.setConterpart(c2);
+		c2.setConterpart(c1);
+		
+		return c1;
 	}
 }
 

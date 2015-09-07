@@ -12,6 +12,7 @@ import net.rudp.ReliableSocketProfile;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jnet.core.AbstractGameEngine;
 import org.jnet.core.connection.AbstractConnection;
 
 public class RudpConnection extends AbstractConnection {
@@ -19,23 +20,23 @@ public class RudpConnection extends AbstractConnection {
 	
 	protected final Socket socket;
 	
-	public RudpConnection(String host, int port) throws IOException {
-		super();
-		socket = new ReliableSocket(createProfile());
+	public RudpConnection(AbstractGameEngine gameEngine, String host, int port) throws IOException {
+		this(gameEngine, new ReliableSocket(createProfile()));
 		socket.connect(new InetSocketAddress(host, port));
 		logger.info("created RudpConnection to " + host + ":" + port);
 	}
 
-	public RudpConnection(String host, int port, String localAddr, int localPort) throws IOException {
-		this(new ReliableSocket(createProfile(),
+	public RudpConnection(AbstractGameEngine gameEngine, String host, int port, String localAddr, int localPort) throws IOException {
+		this(gameEngine, new ReliableSocket(createProfile(),
 				new InetSocketAddress(host, port),
 				new InetSocketAddress(localAddr, localPort)));
 	}
 	
-	public RudpConnection(Socket socket) throws IOException {
-		super();
+	public RudpConnection(AbstractGameEngine gameEngine, Socket socket) throws IOException {
+		super(gameEngine);
 		this.socket = socket;
 		logSocket();
+		startListening();
 	}
 	
 	private void logSocket() {

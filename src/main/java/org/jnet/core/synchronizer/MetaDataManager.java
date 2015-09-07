@@ -1,4 +1,4 @@
-package org.jnet.core;
+package org.jnet.core.synchronizer;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,16 +39,16 @@ public class MetaDataManager {
 		return metaData;
 	}
 
-	public MetaData getByObjectId(int id) {
-		return getByMetaDataId(id % MAX_CLASS_COUNT);
+	public MetaData getByObjectId(ObjectId id) {
+		return getByMetaDataId(id.id % MAX_CLASS_COUNT);
 	}
 
-	public Integer createObjectId(Class<?> clazz) {
+	public ObjectId createObjectId(Class<?> clazz) {
 		MetaData md = get(clazz);
 		int noi = md.nextObjectId();
 		if (noi > Integer.MAX_VALUE / MAX_CLASS_COUNT) {
 			throw new RuntimeException("overflow in objectId creation for " + clazz.getName());
 		}
-		return noi * MAX_CLASS_COUNT + md.getId();
+		return new ObjectId(noi * MAX_CLASS_COUNT + md.getId());
 	}
 }

@@ -1,4 +1,4 @@
-package org.jnet.core;
+package org.jnet.core.tools;
 
 import com.google.common.base.Throwables;
 

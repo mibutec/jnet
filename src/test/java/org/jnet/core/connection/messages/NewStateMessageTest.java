@@ -8,20 +8,18 @@ import java.util.Map;
 import junit.framework.Assert;
 
 import org.jnet.core.GameClient;
-import org.jnet.core.ManagedObject;
-import org.jnet.core.connection.Connection;
+import org.jnet.core.synchronizer.ObjectId;
 import org.jnet.core.testdata.FigureState;
 import org.jnet.core.testdata.Hochhaus;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Mockito;
 
 public class NewStateMessageTest {
 	private GameClient client;
 	
 	@Before
 	public void setup() {
-		client = new GameClient(Mockito.mock(Connection.class));
+		client = new GameClient();
 	}
 	
 	@Test
@@ -78,7 +76,7 @@ public class NewStateMessageTest {
 
 	
 	private Map<Field, Object> serialize(Object state) throws Exception {
-		int id = client.getIdForProxy(client.createProxy(state));
+		ObjectId id = client.getIdForProxy(client.createProxy(state));
 		NewStateMessage message = new NewStateMessage(id, 0, client.getMetaDataManager().get(state.getClass()), state);
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		message.write(baos);

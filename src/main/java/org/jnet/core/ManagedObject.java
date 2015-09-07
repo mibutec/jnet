@@ -1,7 +1,10 @@
 package org.jnet.core;
 
+import org.jnet.core.synchronizer.MetaData;
+import org.jnet.core.synchronizer.ObjectId;
+
 public interface ManagedObject<T> {
-	int _getMoId_();
+	ObjectId _getMoId_();
 	
 	MetaData _getMoMetaData_();
 	

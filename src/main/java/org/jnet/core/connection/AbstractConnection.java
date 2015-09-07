@@ -15,13 +15,14 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jnet.core.AbstractGameEngine;
-import org.jnet.core.MetaDataManager;
 import org.jnet.core.connection.messages.EventMessage;
 import org.jnet.core.connection.messages.MapMessage;
 import org.jnet.core.connection.messages.Message;
 import org.jnet.core.connection.messages.NewStateMessage;
 import org.jnet.core.connection.messages.TimeRequestMessage;
 import org.jnet.core.connection.messages.TimeResponseMessage;
+import org.jnet.core.synchronizer.MetaDataManager;
+import org.jnet.core.tools.RetryService;
 
 public abstract class AbstractConnection implements Connection, Runnable {
 	private static final Logger logger = LogManager.getLogger(AbstractConnection.class);
@@ -30,14 +31,19 @@ public abstract class AbstractConnection implements Connection, Runnable {
 	
 	protected AbstractGameEngine gameEngine;
 	
-	public AbstractConnection() {
+	private Thread listener;
+	
+	public AbstractConnection(AbstractGameEngine gameEngine) {
 		this.queue = new ConcurrentLinkedQueue<Message>();
-	}
-
-	@Override
-	public void setGameEngine(AbstractGameEngine gameEngine) {
 		this.gameEngine = gameEngine;
-		new Thread(this).start();
+	}
+	
+	protected void startListening() {
+		if (listener == null) {
+			listener = new Thread(this);
+			listener.start();
+			logger.info("listener started for {}", gameEngine.name());
+		}
 	}
 
 	@SuppressWarnings("unchecked")
@@ -115,5 +121,13 @@ public abstract class AbstractConnection implements Connection, Runnable {
 	@Override
 	public Message nextMessage() {
 		return queue.poll();
+	}
+	
+	public Message waitForMessage(int timeout) {
+		return new RetryService().runRetrying(() -> {
+			Message message = nextMessage();
+			message.getClass();
+			return message;
+		}, Integer.MAX_VALUE, timeout, new Class[] {NullPointerException.class});
 	}
 }

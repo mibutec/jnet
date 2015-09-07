@@ -4,6 +4,8 @@ import junit.framework.Assert;
 
 import org.jnet.core.connection.DelayedInmemoryConnection;
 import org.jnet.core.testdata.FigureState;
+import org.jnet.core.tools.Eventually;
+import org.jnet.core.tools.Sleep;
 import org.junit.Test;
 
 public class GameEngineIntTest implements Eventually, Sleep {
@@ -19,8 +21,9 @@ public class GameEngineIntTest implements Eventually, Sleep {
 	
 	private void testCooperation(int delay) throws Exception {
 		GameServer server = new GameServer(1500);
-		DelayedInmemoryConnection c = createInMemoryConnections(delay);
-		GameClient client = new GameClient(c);
+		GameClient client = new GameClient();
+		DelayedInmemoryConnection c = DelayedInmemoryConnection.createInMemoryConnections(server, client, delay);
+		client.connect(c);
 		server.addConnetion(c.getConterpart());
 		FigureState serverState = server.createProxy(new FigureState());
 		serverState.setName("server");
@@ -40,14 +43,5 @@ public class GameEngineIntTest implements Eventually, Sleep {
 		});
 		client.close();
 		server.close();
-	}
-	
-	public static DelayedInmemoryConnection createInMemoryConnections(int delay) {
-		DelayedInmemoryConnection c1 = new DelayedInmemoryConnection(delay);
-		DelayedInmemoryConnection c2 = new DelayedInmemoryConnection(delay);
-		c1.setConterpart(c2);
-		c2.setConterpart(c1);
-		
-		return c1;
 	}
 }

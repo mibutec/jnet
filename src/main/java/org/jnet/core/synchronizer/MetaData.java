@@ -1,9 +1,12 @@
-package org.jnet.core;
+package org.jnet.core.synchronizer;
 
 import java.lang.reflect.Field;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jnet.core.helper.BeanHelper;
@@ -11,19 +14,22 @@ import org.jnet.core.helper.BeanHelper;
 public class MetaData {
 	private final int id;
 
-	private final List<Field> fields = new LinkedList<>();
-	
+	private final List<Field> fields;
+
+	private final Map<String, Field> fieldNameMapping = new ConcurrentHashMap<>();
+
 	private final AtomicInteger objectIdGenerator = new AtomicInteger();
-	
+
 	private final Class<?> clazz;
 
 	public MetaData(Class<?> clazz, int id) throws RuntimeException {
 		try {
+			List<Field> tmpList = new LinkedList<>();
 			BeanHelper.forEachRelevantField(clazz, field -> {
-				if (BeanHelper.isPrimitive(field.getType())) {
-					fields.add(field);
-				}
+				tmpList.add(field);
+				fieldNameMapping.put(field.getName(), field);
 			});
+			fields = Collections.unmodifiableList(tmpList);
 		} catch (RuntimeException re) {
 			throw re;
 		} catch (Exception e) {
@@ -52,8 +58,7 @@ public class MetaData {
 
 	@Override
 	public String toString() {
-		return "MetaData [id=" + id + ", fields=" + fields
-				+ ", objectIdGenerator=" + objectIdGenerator + ", clazz="
+		return "MetaData [id=" + id + ", fields=" + fields + ", objectIdGenerator=" + objectIdGenerator + ", clazz="
 				+ clazz + "]";
 	}
 
@@ -64,9 +69,17 @@ public class MetaData {
 	public int getId() {
 		return id;
 	}
-	
+
 	public int nextObjectId() {
 		return objectIdGenerator.incrementAndGet();
+	}
+
+	public Field getField(String name) {
+		Field ret = fieldNameMapping.get(name);
+		if (ret == null) {
+			throw new RuntimeException("Field " + name + " not found for class " + clazz.getName());
+		}
+		return ret;
 	}
 
 	public Class<?> getClazz() {

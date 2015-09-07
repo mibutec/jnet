@@ -51,14 +51,14 @@ public class BeanHelper {
 		}
 	}
 	
-	public static void forEachRelevantField(Class<?> clazz, ThrowingConsumer<Field> consumer) throws Exception {
-		forEachField(clazz, field -> {
+	public static void forEachRelevantField(Class<?> clazz, ThrowingConsumer<Field> consumer) {
+		Unchecker.uncheck(() -> forEachField(clazz, field -> {
 			field.setAccessible(true);
 			boolean correctModifiers = !Modifier.isStatic(field.getModifiers()) && !Modifier.isTransient(field.getModifiers());
 			if (correctModifiers) {
 				consumer.consume(field);
 			}
-		});
+		}));
 		
 	}
 	
