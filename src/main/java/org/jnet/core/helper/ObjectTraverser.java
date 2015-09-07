@@ -5,6 +5,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -29,7 +30,9 @@ public class ObjectTraverser {
 		return clazz.isPrimitive() || primitives.contains(clazz);
 	}
 	
-	private Set<FieldHandler<?>> handlers = new HashSet<>();
+	private Map<Class<?>, FieldHandler<?>> handlers = new HashMap<>();
+	
+	int modifiersToIgnore = Modifier.STATIC;
 
 	public ObjectTraverser() {
 		addFieldHandler(new ObjectFieldHandler());
@@ -40,12 +43,16 @@ public class ObjectTraverser {
 		}
 	}
 	
-	public void addFieldHandler(FieldHandler<?> fieldHandler) {
-		handlers.add(fieldHandler);
+	public void setModifierToIgnore(int newValue) {
+		this.modifiersToIgnore = newValue;
 	}
 	
-	public void traverse(Object object, Consumer consumer) throws Exception {
-		traverse(object, null, consumer, new HashSet<>());
+	public void addFieldHandler(FieldHandler<?> fieldHandler) {
+		handlers.put(fieldHandler.handledType, fieldHandler);
+	}
+	
+	public void traverse(Object object, Consumer consumer) {
+		Unchecker.uncheck(() ->	traverse(object, null, null, consumer, new HashSet<>()));
 	}
 	
 	/**
@@ -64,12 +71,12 @@ public class ObjectTraverser {
 	 * @return best matching handler
 	 */
 	private FieldHandler<?> getBestMatchingHandler(Class<?> clazz) {
-		 List<FieldHandler<?>> sortedHandlers = handlers.stream().filter(handler -> handler.canHandle(clazz)).sorted().collect(Collectors.toList());
+		 List<FieldHandler<?>> sortedHandlers = handlers.values().stream().filter(handler -> handler.canHandle(clazz)).sorted().collect(Collectors.toList());
 		 FieldHandler<?> first = sortedHandlers.get(0);
 		 if (sortedHandlers.size() == 1) {
 			 return first;
 		 }
-
+		 
 		 FieldHandler<?> second = sortedHandlers.get(1);
 		 if (first.compareTo(second) == 0) {
 			 throw new RuntimeException("couldn't determine best matching handler for class " + clazz.getName() + ", both match: " + first + " and " + second);
@@ -79,13 +86,12 @@ public class ObjectTraverser {
 	}
 	
 	@SuppressWarnings("unchecked")
-	void traverse(Object object, Object parent, Consumer consumer, Set<CompareSameWrapper<?>> cycleDetector) throws Exception {
-		if (object == null) {
+	void traverse(Object object, Object parent,  String accessor, Consumer consumer, Set<CompareSameWrapper<?>> cycleDetector) throws Exception {
+		if (!consumer.onObjectFound(object, parent, accessor)) {
 			return;
 		}
 
-		System.out.println(object + " " + parent);
-		if (!consumer.onObjectFound(object, parent)) {
+		if (object == null) {
 			return;
 		}
 
@@ -100,13 +106,13 @@ public class ObjectTraverser {
 				cycleDetector.add(wrapper);
 			}
 		}
-		
+
 		FieldHandler<Object> handler = (FieldHandler<Object>) getBestMatchingHandler(clazz);
 		handler.handleObject(object, new Traverser(this, cycleDetector), consumer);
 	}
 	
 	public static interface Consumer {
-		public boolean onObjectFound(Object object, Object parent);
+		public boolean onObjectFound(Object object, Object parent, String accessor);
 	}
 	
 	public static abstract class FieldHandler<T> implements Comparable<FieldHandler<?>> {
@@ -124,6 +130,10 @@ public class ObjectTraverser {
 
 		@Override
 		public int compareTo(FieldHandler<?> other) {
+			if (other.handledType == handledType) {
+				return 0;
+			}
+			
 			if (other.handledType.isAssignableFrom(handledType)) {
 				return -1;
 			}
@@ -134,21 +144,6 @@ public class ObjectTraverser {
 			
 			return 0;
 		}
-
-		@Override
-		public int hashCode() {
-			return handledType.hashCode();
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (obj == null || getClass() != obj.getClass()) {
-				return false;
-			}
-			@SuppressWarnings("rawtypes")
-			FieldHandler other = (FieldHandler) obj;
-			return handledType == other.handledType;
-		}
 	}
 	
 	/**
@@ -158,9 +153,9 @@ public class ObjectTraverser {
 	 *
 	 */
 	public class Traverser {
-		private final ObjectTraverser objectTraverser;
+		final ObjectTraverser objectTraverser;
 		
-		private final Set<CompareSameWrapper<?>> cycleDetector;
+		final Set<CompareSameWrapper<?>> cycleDetector;
 
 		public Traverser(ObjectTraverser objectTraverser, Set<CompareSameWrapper<?>> cycleDetector) {
 			super();
@@ -168,8 +163,8 @@ public class ObjectTraverser {
 			this.cycleDetector = cycleDetector;
 		}
 		
-		public void goOn(Object object, Object parent, Consumer consumer) throws Exception {
-			objectTraverser.traverse(object, parent, consumer, cycleDetector);
+		public void goOn(Object object, Object parent,  String accessor, Consumer consumer) throws Exception {
+			objectTraverser.traverse(object, parent, accessor, consumer, cycleDetector);
 		}
 	}
 }
@@ -183,15 +178,22 @@ class ObjectFieldHandler extends FieldHandler<Object> {
 	@Override
 	public void handleObject(Object object, Traverser traverser, Consumer consumer) throws Exception {
 		Class<?> clazz = object.getClass();
+		int mofifiersToIgnore = traverser.objectTraverser.modifiersToIgnore;
+		
 		while (clazz != Object.class) {
 			Field[] fields = clazz.getDeclaredFields();
 			for (Field field : fields) {
-				if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) {
+				if ((field.getModifiers() & mofifiersToIgnore) != 0) {
 					continue;
 				}
 				field.setAccessible(true);
 				Object fieldValue = field.get(object);
-				traverser.goOn(fieldValue, object, consumer);
+				
+				if ((field.getModifiers() & Modifier.STATIC) != 0) {
+					traverser.goOn(fieldValue, clazz, field.getName(), consumer);
+				} else {
+					traverser.goOn(fieldValue, object, field.getName(), consumer);
+				}
 			}
 			clazz = clazz.getSuperclass();
 		}
@@ -207,8 +209,9 @@ class CollectionFieldHandler extends FieldHandler<Collection> {
 
 	@Override
 	public void handleObject(Collection col, Traverser traverser, Consumer consumer) throws Exception {
+		int i = 0;
 		for (Iterator<Object> it = col.iterator(); it.hasNext(); ) {
-			traverser.goOn(it.next(), col, consumer);
+			traverser.goOn(it.next(), col, Integer.toString(i++), consumer);
 		}
 	}
 }
@@ -222,10 +225,12 @@ class MapFieldHandler extends FieldHandler<Map> {
 	
 	@Override
 	public void handleObject(Map map, Traverser traverser, Consumer consumer) throws Exception {
+		int i = 0;
 		for (Object o : map.entrySet()) {
 			Entry entry = (Entry) o;
-			traverser.goOn(entry.getKey(), map, consumer);
-			traverser.goOn(entry.getValue(), map, consumer);
+			traverser.goOn(entry.getKey(), map, "key" + i, consumer);
+			traverser.goOn(entry.getValue(), map, "value" + i, consumer);
+			i++;
 		}
 	}
 }
@@ -242,7 +247,7 @@ class ArrayFieldHandler extends FieldHandler<Object> {
 	    int length = Array.getLength(array);
 	    for (int i = 0; i < length; i ++) {
 	        Object arrayElement = Array.get(array, i);
-	        traverser.goOn(arrayElement, array, consumer);
+	        traverser.goOn(arrayElement, array, Integer.toString(i), consumer);
 	    }
 	}
 }

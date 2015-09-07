@@ -12,7 +12,7 @@ public class ChangedStateMessage implements SynchronizationMessage {
 	
 	private final List<AddObjectMessage> addObjectMessages = new LinkedList<>();
 
-	private final List<UpdateObjectMessage> updateObjectMessages = new LinkedList<>();
+	private final List<SynchronizationMessage> updateObjectMessages = new LinkedList<>();
 
 	public ChangedStateMessage(int timestamp) {
 		super();
@@ -35,6 +35,10 @@ public class ChangedStateMessage implements SynchronizationMessage {
 	
 	public void addUpdateObject(ObjectId objectId, Map<String, Object> fieldsToUpdate) {
 		updateObjectMessages.add(new UpdateObjectMessage(objectId, fieldsToUpdate));
+	}
+	
+	public void addUpdateObject(SynchronizationMessage message) {
+		updateObjectMessages.add(message);
 	}
 	
 	public int getTimestamp() {

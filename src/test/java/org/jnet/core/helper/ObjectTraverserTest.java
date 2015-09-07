@@ -1,11 +1,14 @@
 package org.jnet.core.helper;
 
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.jnet.core.helper.ObjectTraverser.Consumer;
@@ -15,17 +18,36 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.mockito.Spy;
 
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Matchers.matches;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 
+@SuppressWarnings("all")
 public class ObjectTraverserTest {
 	@Mock
 	private Consumer consumer;
+	
+	@Spy
+	private FieldHandler independentInterface1Handler = new TestFieldHandler<>(IndependentInterface1.class);
+	
+	@Spy
+	private FieldHandler independentInterface2Handler = new TestFieldHandler<>(IndependentInterface2.class);
+	
+	@Spy
+	private FieldHandler masterInterfaceHandler = new TestFieldHandler<>(MasterInterface.class);
+	
+	@Spy
+	private FieldHandler collectionHandler = new TestFieldHandler<>(Collection.class);
+	
+	@Spy
+	private FieldHandler goArrayHandler = new TestFieldHandler<>(GenericClass[].class);
 	
 	private ObjectTraverser testee;
 	
@@ -33,13 +55,13 @@ public class ObjectTraverserTest {
 	public void setup() {
 		MockitoAnnotations.initMocks(this);
 		testee = new ObjectTraverser();
-		when(consumer.onObjectFound(any(), any())).thenReturn(true);
+		when(consumer.onObjectFound(any(), any(), any())).thenReturn(true);
 	}
 	
 	@Test
 	public void shouldTraverseCompleteAnObjectTree() throws Exception {
 		runTest(new ClassWithInnerClass(), (object) -> {
-			verify(consumer).onObjectFound(object.primitives, object);
+			verify(consumer).onObjectFound(object.primitives, object, "primitives");
 			verifyPrimitives(object.primitives);
 		});
 	}
@@ -50,20 +72,25 @@ public class ObjectTraverserTest {
 		gc.object1 = SimpleEnum.TRUE;
 		gc.object2 = ComplexeEnum.FALSE;
 		runTest(gc, (object) -> {
-			verify(consumer).onObjectFound(object, null);
-			verify(consumer).onObjectFound(object.object1, object);
-			verify(consumer).onObjectFound(SimpleEnum.TRUE.name(), object.object1);
-			verify(consumer).onObjectFound(SimpleEnum.TRUE.ordinal(), object.object1);
-			verify(consumer).onObjectFound(object.object2, object);
-			verify(consumer).onObjectFound(ComplexeEnum.FALSE.someInner, ComplexeEnum.FALSE);
-			verify(consumer).onObjectFound(ComplexeEnum.FALSE.name(), object.object2);
-			verify(consumer).onObjectFound(ComplexeEnum.FALSE.ordinal(), object.object2);
+			verify(consumer).onObjectFound(object.object1, object, "object1");
+			verify(consumer).onObjectFound(SimpleEnum.TRUE.name(), object.object1, "name");
+			verify(consumer).onObjectFound(SimpleEnum.TRUE.ordinal(), object.object1, "ordinal");
+			verify(consumer).onObjectFound(object.object2, object, "object2");
+			verify(consumer).onObjectFound(ComplexeEnum.FALSE.someInner, ComplexeEnum.FALSE, "someInner");
+			verify(consumer).onObjectFound(ComplexeEnum.FALSE.someInner.object1, ComplexeEnum.FALSE.someInner, "object1");
+			verify(consumer).onObjectFound(ComplexeEnum.FALSE.someInner.object2, ComplexeEnum.FALSE.someInner, "object2");
+			verify(consumer).onObjectFound(ComplexeEnum.FALSE.name(), object.object2, "name");
+			verify(consumer).onObjectFound(ComplexeEnum.FALSE.ordinal(), object.object2, "ordinal");
 		});
 	}
 	
 	@Test
 	public void shouldHandleNullFields() throws Exception {
-		runTest(new NullClass(), (object) -> {});
+		runTest(new NullClass(), (object) -> {
+			verify(consumer).onObjectFound(object.classWithInnerClass, object, "classWithInnerClass");
+			verify(consumer).onObjectFound(object.innerClass, object, "innerClass");
+			verify(consumer).onObjectFound(object.string, object, "string");
+		});
 	}
 	
 	@Test
@@ -73,42 +100,50 @@ public class ObjectTraverserTest {
 	
 	@Test
 	public void shouldAllowToConfigureModifiers() throws Exception {
-//		testee.changeModifier
-//		runTest(new ClassWithStaticFields(), (object) -> {
-//			verify(consumer).onObjectFound("static", ClassWithStaticFields.class);
-//		});
+		testee.setModifierToIgnore(Modifier.TRANSIENT);
+		runTest(new ClassWithStaticFields(), (object) -> {
+			verify(consumer).onObjectFound("static", ClassWithStaticFields.class, "staticField");
+		});
+		runTest(new ComplexeClass(), (object) -> {
+			verify(consumer).onObjectFound(object.string, object, "string");
+			verify(consumer).onObjectFound(object.classWithInnerClass, object, "classWithInnerClass");
+			verify(consumer).onObjectFound(object.innerClass, object, "innerClass");
+			verify(consumer).onObjectFound(object.classWithInnerClass.primitives, object.classWithInnerClass, "primitives");
+			verifyPrimitives(object.classWithInnerClass.primitives);
+			verifyPrimitives(object.innerClass);
+		});
 	}
 	
 	@Test
 	public void shouldIterateThroughAllKindsOfArrays() throws Exception {
 		runTest(new ArrayClass(), (object) -> {
-			verify(consumer).onObjectFound(object.boolArray, object);
-			verify(consumer).onObjectFound(object.boolArray[0], object.boolArray);
-			verify(consumer).onObjectFound(object.boolArray[1], object.boolArray);
-			verify(consumer).onObjectFound(object.byteArray, object);
-			verify(consumer).onObjectFound(object.byteArray[0], object.byteArray);
-			verify(consumer).onObjectFound(object.byteArray[1], object.byteArray);
-			verify(consumer).onObjectFound(object.shortArray, object);
-			verify(consumer).onObjectFound(object.shortArray[0], object.shortArray);
-			verify(consumer).onObjectFound(object.shortArray[1], object.shortArray);
-			verify(consumer).onObjectFound(object.charArray, object);
-			verify(consumer).onObjectFound(object.charArray[0], object.charArray);
-			verify(consumer).onObjectFound(object.charArray[1], object.charArray);
-			verify(consumer).onObjectFound(object.intArray, object);
-			verify(consumer).onObjectFound(object.intArray[0], object.intArray);
-			verify(consumer).onObjectFound(object.intArray[1], object.intArray);
-			verify(consumer).onObjectFound(object.longArray, object);
-			verify(consumer).onObjectFound(object.longArray[0], object.longArray);
-			verify(consumer).onObjectFound(object.longArray[1], object.longArray);
-			verify(consumer).onObjectFound(object.floatArray, object);
-			verify(consumer).onObjectFound(object.floatArray[0], object.floatArray);
-			verify(consumer).onObjectFound(object.floatArray[1], object.floatArray);
-			verify(consumer).onObjectFound(object.doubleArray, object);
-			verify(consumer).onObjectFound(object.doubleArray[0], object.doubleArray);
-			verify(consumer).onObjectFound(object.doubleArray[1], object.doubleArray);
-			verify(consumer).onObjectFound(object.objectArray, object);
-			verify(consumer).onObjectFound(object.objectArray[0], object.objectArray);
-			verify(consumer).onObjectFound(object.objectArray[1], object.objectArray);
+			verify(consumer).onObjectFound(object.boolArray, object, "boolArray");
+			verify(consumer).onObjectFound(object.boolArray[0], object.boolArray, "0");
+			verify(consumer).onObjectFound(object.boolArray[1], object.boolArray, "1");
+			verify(consumer).onObjectFound(object.byteArray, object, "byteArray");
+			verify(consumer).onObjectFound(object.byteArray[0], object.byteArray, "0");
+			verify(consumer).onObjectFound(object.byteArray[1], object.byteArray, "1");
+			verify(consumer).onObjectFound(object.shortArray, object, "shortArray");
+			verify(consumer).onObjectFound(object.shortArray[0], object.shortArray, "0");
+			verify(consumer).onObjectFound(object.shortArray[1], object.shortArray, "1");
+			verify(consumer).onObjectFound(object.charArray, object, "charArray");
+			verify(consumer).onObjectFound(object.charArray[0], object.charArray, "0");
+			verify(consumer).onObjectFound(object.charArray[1], object.charArray, "1");
+			verify(consumer).onObjectFound(object.intArray, object, "intArray");
+			verify(consumer).onObjectFound(object.intArray[0], object.intArray, "0");
+			verify(consumer).onObjectFound(object.intArray[1], object.intArray, "1");
+			verify(consumer).onObjectFound(object.longArray, object, "longArray");
+			verify(consumer).onObjectFound(object.longArray[0], object.longArray, "0");
+			verify(consumer).onObjectFound(object.longArray[1], object.longArray, "1");
+			verify(consumer).onObjectFound(object.floatArray, object, "floatArray");
+			verify(consumer).onObjectFound(object.floatArray[0], object.floatArray, "0");
+			verify(consumer).onObjectFound(object.floatArray[1], object.floatArray, "1");
+			verify(consumer).onObjectFound(object.doubleArray, object, "doubleArray");
+			verify(consumer).onObjectFound(object.doubleArray[0], object.doubleArray, "0");
+			verify(consumer).onObjectFound(object.doubleArray[1], object.doubleArray, "1");
+			verify(consumer).onObjectFound(object.objectArray, object, "objectArray");
+			verify(consumer).onObjectFound(object.objectArray[0], object.objectArray, "0");
+			verify(consumer).onObjectFound(object.objectArray[1], object.objectArray, "1");
 			verifyPrimitives(object.objectArray[0]);
 			verifyPrimitives(object.objectArray[1]);
 		});
@@ -120,11 +155,11 @@ public class ObjectTraverserTest {
 		PrimitivesClass o1 = (PrimitivesClass) cws.set.stream().filter((o) -> o instanceof PrimitivesClass).findAny().get();
 		ClassWithInnerClass o2 = (ClassWithInnerClass) cws.set.stream().filter((o) -> o instanceof ClassWithInnerClass).findAny().get();
 		runTest(cws, (object) -> {
-			verify(consumer).onObjectFound(object.set, object);
-			verify(consumer).onObjectFound(o1, object.set);
-			verify(consumer).onObjectFound(o2, object.set);
+			verify(consumer).onObjectFound(object.set, object, "set");
+			verify(consumer).onObjectFound(eq(o1), eq(object.set), matches("0|1"));
+			verify(consumer).onObjectFound(eq(o2), eq(object.set), matches("0|1"));
 			verifyPrimitives(o1);
-			verify(consumer).onObjectFound(o2.primitives, o2);
+			verify(consumer).onObjectFound(o2.primitives, o2, "primitives");
 			verifyPrimitives(o2.primitives);
 		});
 	}
@@ -132,90 +167,172 @@ public class ObjectTraverserTest {
 	@Test
 	public void shouldIterateThroughLists() throws Exception {
 		runTest(new ClassWithList(), (object) -> {
-			verify(consumer).onObjectFound(object.list, object);
-			verify(consumer).onObjectFound(object.list.get(0), object.list);
-			verify(consumer).onObjectFound(object.list.get(1), object.list);
+			verify(consumer).onObjectFound(object.list, object, "list");
+			verify(consumer).onObjectFound(object.list.get(0), object.list, "0");
+			verify(consumer).onObjectFound(object.list.get(1), object.list, "1");
 			verifyPrimitives(object.list.get(0));
-			verify(consumer).onObjectFound(((ClassWithInnerClass) (object.list.get(1))).primitives, object.list.get(1));
+			verify(consumer).onObjectFound(((ClassWithInnerClass) (object.list.get(1))).primitives, object.list.get(1), "primitives");
 			verifyPrimitives(((ClassWithInnerClass) (object.list.get(1))).primitives);
 		});
 	}
 	
 	@Test
 	public void shouldIterateThroughMapsAndTraverseKeysAndValues() throws Exception {
-		runTest(new Object(), (object) -> {
-			
+		runTest(new ClassWithMap(), (object) -> {
+			verify(consumer).onObjectFound(object.map, object, "map");
+			Entry<PrimitivesClass, ClassWithInnerClass> entry = object.map.entrySet().iterator().next();
+			verify(consumer).onObjectFound(entry.getKey(), object.map, "key0");
+			verifyPrimitives(entry.getKey());
+			verify(consumer).onObjectFound(entry.getValue(), object.map, "value0");
+			verify(consumer).onObjectFound(entry.getValue().primitives, entry.getValue(), "primitives");
+			verifyPrimitives(entry.getValue().primitives);
 		});
 	}
 	
 	@Test
 	public void shouldDetectCycles() throws Exception {
-		runTest(new Object(), (object) -> {
-			
+		GenericClass gc = new GenericClass();
+		gc.object1 = gc;
+		gc.object2 = new GenericClass();
+		runTest(gc, (object) -> {
+			verify(consumer).onObjectFound(gc.object1, gc, "object1");
+			verify(consumer).onObjectFound(gc.object2, gc, "object2");
+			verify(consumer).onObjectFound(null, gc.object2, "object1");
+			verify(consumer).onObjectFound(null, gc.object2, "object2");
 		});
 	}
 
 	@Test
 	public void shouldDetectCyclesInvolvingArrays() throws Exception {
-		runTest(new Object(), (object) -> {
-			
+		GenericClass[] gcArray = new GenericClass[2];
+		GenericClass gc = new GenericClass();
+		gc.object1 = gcArray;
+		gcArray[0] = gc;
+		gcArray[1] = new GenericClass();
+		runTest(gc, (object) -> {
+			verify(consumer).onObjectFound(gcArray, object, "object1");
+			verify(consumer).onObjectFound(gcArray[0], object.object1, "0");
+			verify(consumer).onObjectFound(gcArray[1], object.object1, "1");
+			verify(consumer).onObjectFound(null, object, "object2");
+			verify(consumer).onObjectFound(null, gcArray[1], "object1");
+			verify(consumer).onObjectFound(null, gcArray[1], "object2");
 		});
 	}
 
 	@Test
 	public void shouldDetectCyclesInvolvingCollections() throws Exception {
-		runTest(new Object(), (object) -> {
-			
+		List<GenericClass> gcList = new ArrayList<>();
+		GenericClass gc = new GenericClass();
+		gc.object1 = gcList;
+		gcList.add(gc);
+		gcList.add(new GenericClass());
+		runTest(gc, (object) -> {
+			verify(consumer).onObjectFound(gcList, object, "object1");
+			verify(consumer).onObjectFound(null, object, "object2");
+			verify(consumer).onObjectFound(gcList.get(1), object.object1, "1");
+			verify(consumer).onObjectFound(gcList.get(0), object.object1, "0");
+			verify(consumer).onObjectFound(null, gcList.get(1), "object1");
+			verify(consumer).onObjectFound(null, gcList.get(1), "object2");
 		});
 	}
 	
 	@Test
 	public void shouldNotDetectCycleOnEqualObjects() throws Exception {
-		runTest(new Object(), (object) -> {
-			
+		GenericClass gc = new GenericClass();
+		gc.object1 = new EqualClass();
+		gc.object2 = new EqualClass();
+		runTest(gc, (object) -> {
+			verify(consumer).onObjectFound(gc.object1, object, "object1");
+			verify(consumer).onObjectFound(gc.object2, object, "object2");
 		});
 	}
 	
 	@Test
 	public void shouldExcludePrimitivesFromCycleDetection() throws Exception {
-		runTest(new Object(), (object) -> {
-			
+		GenericClass gc = new GenericClass();
+		gc.object1 = new PrimitivesClass();
+		gc.object2 = new PrimitivesClass();
+		
+		runTest(gc, (object) -> {
+			verify(consumer).onObjectFound(gc.object1, object, "object1");
+			verify(consumer).onObjectFound(gc.object2, object, "object2");
+			verifyPrimitives(gc.object1);
+			verifyPrimitives(gc.object2);
 		});
 	}
 	
 	@Test
 	public void shouldAllowAddingFieldHandlers() throws Exception {
-		
+		GenericClass gc = new GenericClass();
+		gc.object1 = new IndependentInterface1() {};
+		testee.addFieldHandler(independentInterface1Handler);
+		testee.traverse(gc, consumer);
+		verify(independentInterface1Handler).handleObject(eq(gc.object1), any(), eq(consumer));
+		verify(independentInterface1Handler, times(1)).handleObject(any(), any(), any());
 	}
 	
 	@Test
 	public void shouldAllowOverridingFieldHandlers() throws Exception {
-		
+		GenericClass gc = new GenericClass();
+		gc.object1 = new LinkedList<>();
+		gc.object2 = new HashSet<>();
+		testee.addFieldHandler(collectionHandler);
+		testee.traverse(gc, consumer);
+		verify(collectionHandler).handleObject(eq(gc.object1), any(), eq(consumer));
+		verify(collectionHandler).handleObject(eq(gc.object2), any(), eq(consumer));
+		verify(collectionHandler, times(2)).handleObject(any(), any(), any());
 	}
 	
 	@Test
 	public void shouldDetermineBestMatchingFieldHandler() throws Exception {
-		
+		GenericClass gc = new GenericClass();
+		gc.object1 = new MasterInterface() {};
+		gc.object2 = new IndependentInterface2() {};
+		testee.addFieldHandler(masterInterfaceHandler);
+		testee.addFieldHandler(independentInterface2Handler);
+		testee.traverse(gc, consumer);
+		verify(masterInterfaceHandler).handleObject(eq(gc.object1), any(), eq(consumer));
+		verify(independentInterface2Handler).handleObject(eq(gc.object2), any(), eq(consumer));
+		verify(masterInterfaceHandler, times(1)).handleObject(any(), any(), any());
+		verify(independentInterface2Handler, times(1)).handleObject(any(), any(), any());
 	}
 
-	@Test
+	@Test(expected=RuntimeException.class)
 	public void shouldThrowAnExceptionIfTwoIndependentInterfacesFieldHandlersAreBestMatch() throws Exception {
-		
+		GenericClass gc = new GenericClass();
+		gc.object1 = new MasterInterface() {};
+		testee.addFieldHandler(independentInterface1Handler);
+		testee.addFieldHandler(independentInterface2Handler);
+		testee.traverse(gc, consumer);
 	}
 
 	@Test
 	public void shouldAllowCoveringTwoIndependentInterfaceFieldHandlerssInOneMasterInterfaceFieldHandlers() throws Exception {
-		
+		GenericClass gc = new GenericClass();
+		gc.object1 = new MasterInterface() {};
+		testee.addFieldHandler(independentInterface1Handler);
+		testee.addFieldHandler(independentInterface2Handler);
+		testee.addFieldHandler(masterInterfaceHandler);
+		testee.traverse(gc, consumer);
+		verify(masterInterfaceHandler).handleObject(eq(gc.object1), any(), eq(consumer));
+		verify(masterInterfaceHandler, times(1)).handleObject(any(), any(), any());
+		verify(independentInterface1Handler, times(0)).handleObject(any(), any(), any());
+		verify(independentInterface2Handler, times(0)).handleObject(any(), any(), any());
 	}
 	
 	@Test
 	public void shouldPrefferMoreSpecificArrayFieldHandlersOverGeneral() throws Exception {
-		
+		GenericClass gc = new GenericClass();
+		gc.object1 = new GenericClass[0];
+		testee.addFieldHandler(goArrayHandler);
+		testee.traverse(gc, consumer);
+		verify(goArrayHandler).handleObject(eq(gc.object1), any(), eq(consumer));
+		verify(goArrayHandler, times(1)).handleObject(any(), any(), any());
 	}
 	
 	private<T> void runTest(T object, Verifier<T> verifications) throws Exception {
 		testee.traverse(object, consumer);
-		verify(consumer).onObjectFound(object, null);
+		verify(consumer).onObjectFound(object, null, null);
 		verifications.verify(object);
 		verifyNoMoreInteractions(consumer);
 	}
@@ -227,23 +344,23 @@ public class ObjectTraverserTest {
 	private void verifyPrimitives(Object parent) {
 		PrimitivesClass compareValues = new PrimitivesClass();
 		
-		// one for Boolean and one for boolean
-		verify(consumer, times(2)).onObjectFound(compareValues.bigBool, parent);
-		verify(consumer).onObjectFound(compareValues.bigByte, parent);
-		verify(consumer).onObjectFound(compareValues.bigChar, parent);
-		verify(consumer).onObjectFound(compareValues.bigDouble, parent);
-		verify(consumer).onObjectFound(compareValues.bigFloat, parent);
-		verify(consumer).onObjectFound(compareValues.bigInt, parent);
-		verify(consumer).onObjectFound(compareValues.bigLong, parent);
-		verify(consumer).onObjectFound(compareValues.bigShort, parent);
-		verify(consumer).onObjectFound(compareValues.smallByte, parent);
-		verify(consumer).onObjectFound(compareValues.smallChar, parent);
-		verify(consumer).onObjectFound(compareValues.smallDouble, parent);
-		verify(consumer).onObjectFound(compareValues.smallFloat, parent);
-		verify(consumer).onObjectFound(compareValues.smallInt, parent);
-		verify(consumer).onObjectFound(compareValues.smallLong, parent);
-		verify(consumer).onObjectFound(compareValues.smallShort, parent);
-		verify(consumer).onObjectFound(compareValues.string, parent);
+		verify(consumer).onObjectFound(compareValues.bigBool, parent, "bigBool");
+		verify(consumer).onObjectFound(compareValues.bigByte, parent, "bigByte");
+		verify(consumer).onObjectFound(compareValues.bigChar, parent, "bigChar");
+		verify(consumer).onObjectFound(compareValues.bigDouble, parent, "bigDouble");
+		verify(consumer).onObjectFound(compareValues.bigFloat, parent, "bigFloat");
+		verify(consumer).onObjectFound(compareValues.bigInt, parent, "bigInt");
+		verify(consumer).onObjectFound(compareValues.bigLong, parent, "bigLong");
+		verify(consumer).onObjectFound(compareValues.bigShort, parent, "bigShort");
+		verify(consumer).onObjectFound(compareValues.smallBool, parent, "smallBool");
+		verify(consumer).onObjectFound(compareValues.smallByte, parent, "smallByte");
+		verify(consumer).onObjectFound(compareValues.smallChar, parent, "smallChar");
+		verify(consumer).onObjectFound(compareValues.smallDouble, parent, "smallDouble");
+		verify(consumer).onObjectFound(compareValues.smallFloat, parent, "smallFloat");
+		verify(consumer).onObjectFound(compareValues.smallInt, parent, "smallInt");
+		verify(consumer).onObjectFound(compareValues.smallLong, parent, "smallLong");
+		verify(consumer).onObjectFound(compareValues.smallShort, parent, "smallShort");
+		verify(consumer).onObjectFound(compareValues.string, parent, "string");
 	}
 }
 
@@ -279,6 +396,7 @@ class ArrayClass {
 	Object[] objectArray = new 	PrimitivesClass[]{new PrimitivesClass(), new PrimitivesClass()};
 }
 
+@SuppressWarnings("all")
 class ClassWithList {
 	List list = new LinkedList();
 	
@@ -288,6 +406,7 @@ class ClassWithList {
 	}
 }
 
+@SuppressWarnings("all")
 class ClassWithSet {
 	Set set = new HashSet();
 	
@@ -298,10 +417,9 @@ class ClassWithSet {
 }
 
 class ClassWithMap {
-	Map map = new HashMap();
+	Map<PrimitivesClass, ClassWithInnerClass> map = new HashMap<>();
 	
 	ClassWithMap() {
-		map.put(new PrimitivesClass(), new ClassWithInnerClass());
 		map.put(new PrimitivesClass(), new ClassWithInnerClass());
 	}
 }
@@ -323,7 +441,7 @@ class ClassWithInnerClass {
 }
 
 class ComplexeClass {
-	int anInt = 42;
+	transient int anInt = 42;
 	String string = "string";
 	PrimitivesClass innerClass = new PrimitivesClass();
 	ClassWithInnerClass classWithInnerClass = new ClassWithInnerClass();
@@ -350,11 +468,11 @@ interface IndependentInterface1 {
 	
 }
 
-interface IndependetInterface2 {
+interface IndependentInterface2 {
 	
 }
 
-interface MasterInterface extends IndependentInterface1, IndependetInterface2 {
+interface MasterInterface extends IndependentInterface1, IndependentInterface2 {
 	
 }
 

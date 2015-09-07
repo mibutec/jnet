@@ -1,6 +1,6 @@
 package org.jnet.core.synchronizer;
 
-import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -18,7 +18,7 @@ public abstract class LookAheadObject<T> implements ObjectChangeProvider {
 	
 	protected final MetaDataManager metaDataManager = new MetaDataManager();
 	
-	protected final ObjectTraverser objectTraverser = new ObjectTraverser();
+	protected final ObjectTraverser objectTraverser;
 	
 	private final SynchronizeConsumer consumer = new SynchronizeConsumer();
 	
@@ -26,12 +26,30 @@ public abstract class LookAheadObject<T> implements ObjectChangeProvider {
 
 	protected final State<T> lastTrustedState;
 	
-	private CloneStrategy cloneStrategy = CloneStrategy.serializer;
+	protected final CloneStrategy cloneStrategy;
 
-	private LateEventStrategy lateEventStrategy = LateEventStrategy.dismiss;
+	protected final LateEventStrategy lateEventStrategy;
 
-	public LookAheadObject(T objectToSynchronize) {
+	protected LookAheadObject(T objectToSynchronize, LookAheadObjectConfiguration<T> config) {
+		this.objectTraverser = new ObjectTraverser();
+		this.objectTraverser.setModifierToIgnore(Modifier.STATIC | Modifier.TRANSIENT);
 		this.lastTrustedState = new State<T>(objectToSynchronize, 0);
+		if (config == null) {
+			config = new LookAheadObjectConfiguration<>();
+		}
+		
+		if (config.getCloneStrategy() != null) {
+			this.cloneStrategy = config.getCloneStrategy();
+		} else {
+			this.cloneStrategy = CloneStrategy.serializer;
+		}
+		
+		if (config.getLateEventStrategy() != null) {
+			this.lateEventStrategy = config.getLateEventStrategy();
+		} else {
+			this.lateEventStrategy = LateEventStrategy.dismiss;
+		}
+		
 		inventorizeObject(objectToSynchronize);
 	}
 	
@@ -89,7 +107,10 @@ public abstract class LookAheadObject<T> implements ObjectChangeProvider {
 	private class SynchronizeConsumer implements Consumer {
 
 		@Override
-		public boolean onObjectFound(Object object, Object parent) {
+		public boolean onObjectFound(Object object, Object parent, String accessor) {
+			if (object == null) {
+				return false;
+			}
 			Class<?> clazz = object.getClass();
 			if (!ObjectTraverser.isPrimitive(clazz)) {
 				CompareSameWrapper<?> wrapper = new CompareSameWrapper<Object>(object);

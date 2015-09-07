@@ -7,7 +7,7 @@ import static org.junit.Assert.assertThat;
 
 
 public class LookAheadObjectMasterTest extends AbstractLookAheadObjectTest {
-//	@Test
+	@Test
 	public void shouldIncreaseTimestampOnEvolve() {
 		UpdateableTestobject object = new UpdateableTestobject();
 		testee = createTestee(object);
