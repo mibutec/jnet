@@ -78,9 +78,9 @@ public class DefaultDiffIdentifier<T> implements DiffIdentifier<T> {
 			message.addNewObject(newObjectId, objectReadProvider.getObject(newObjectId));
 		}
 
-		for (ObjectId newObjectId : newObjects) {
-			message.addNewObject(newObjectId, objectReadProvider.getObject(newObjectId));
-		}
+//		for (ObjectId newObjectId : newObjects) {
+//			message.addNewObject(newObjectId, objectReadProvider.getObject(newObjectId));
+//		}
 	}
 }
 

@@ -21,11 +21,18 @@ public class LookAheadObjectMaster<T> extends LookAheadObject<T> implements Obje
 		this(objectToSynchronize, new LookAheadObjectConfiguration<>());
 	}
 	
+	public ChangedStateMessage createMessage(int timestamp) {
+		return new ChangedStateMessage(timestamp);
+	}
+	
 	public ChangedStateMessage evolveLastTrustedState(int diff) {
 		int newTimestamp = lastTrustedState.getTimestamp() + diff;
 		T beforeState = diffIdentifier.prepareObject(lastTrustedState.getState());
+		System.out.println(managedObjects);
 		lastTrustedState.updateState(sortedEvents, newTimestamp);
-		ChangedStateMessage message = new ChangedStateMessage(newTimestamp);
+		System.out.println(managedObjects);
+		inventorizeObject(lastTrustedState.getState());
+		ChangedStateMessage message = createMessage(newTimestamp);
 		diffIdentifier.findDiff(beforeState, lastTrustedState.getState(), message);
 		
 		cleanup();
@@ -34,6 +41,12 @@ public class LookAheadObjectMaster<T> extends LookAheadObject<T> implements Obje
 
 	@Override
 	public ObjectId getIdForObject(Object object) {
-		return managedObjectsReverse.get(new CompareSameWrapper<>(object));
+		ObjectId ret = managedObjectsReverse.get(new CompareSameWrapper<>(object));
+		
+		if (ret == null) {
+			throw new RuntimeException(object + " is not a managed object, couldn't retrieve id");
+		}
+		
+		return ret;
 	}
 }

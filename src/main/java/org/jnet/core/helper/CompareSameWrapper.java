@@ -9,8 +9,13 @@ public final class CompareSameWrapper<T> {
 	}
 
 	@Override
+	public String toString() {
+		return "c{" + instance.toString() + "}";
+	}
+	
+	@Override
 	public int hashCode() {
-		return instance.hashCode();
+		return System.identityHashCode(instance);
 	}
 
 	@SuppressWarnings("unchecked")

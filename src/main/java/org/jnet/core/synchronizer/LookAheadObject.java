@@ -29,11 +29,11 @@ public abstract class LookAheadObject<T> implements ObjectChangeProvider {
 	protected final CloneStrategy cloneStrategy;
 
 	protected final LateEventStrategy lateEventStrategy;
-
-	protected LookAheadObject(T objectToSynchronize, LookAheadObjectConfiguration<T> config) {
+	
+	protected LookAheadObject(T managedObject, LookAheadObjectConfiguration<T> config) {
 		this.objectTraverser = new ObjectTraverser();
 		this.objectTraverser.setModifierToIgnore(Modifier.STATIC | Modifier.TRANSIENT);
-		this.lastTrustedState = new State<T>(objectToSynchronize, 0);
+		this.lastTrustedState = new State<T>(managedObject, 0);
 		if (config == null) {
 			config = new LookAheadObjectConfiguration<>();
 		}
@@ -50,7 +50,7 @@ public abstract class LookAheadObject<T> implements ObjectChangeProvider {
 			this.lateEventStrategy = LateEventStrategy.dismiss;
 		}
 		
-		inventorizeObject(objectToSynchronize);
+		inventorizeObject(managedObject);
 	}
 	
 	public T getStateForTimestamp(int ts) {
@@ -85,12 +85,7 @@ public abstract class LookAheadObject<T> implements ObjectChangeProvider {
 
 	@Override
 	public Object getObject(ObjectId objectId) {
-		Object ret = managedObjects.get(objectId).getInstance();
-		if (ret == null) {
-			throw new RuntimeException("object with id " + objectId + " doesnt exist");
-		}
-		
-		return ret;
+		return managedObjects.get(objectId).getInstance();
 	}
 	
 	@Override
@@ -98,7 +93,7 @@ public abstract class LookAheadObject<T> implements ObjectChangeProvider {
 		return metaDataManager.get(object.getClass());
 	}
 	
-	private void inventorizeObject(Object object) {
+	protected void inventorizeObject(Object object) {
 		Unchecker.uncheck(() -> 
 			objectTraverser.traverse(object, consumer)
 		);
