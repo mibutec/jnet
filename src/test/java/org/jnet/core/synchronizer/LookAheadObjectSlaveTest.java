@@ -1,6 +1,9 @@
 package org.jnet.core.synchronizer;
 
 import org.jnet.core.synchronizer.message.ChangedStateMessage;
+import org.jnet.core.synchronizer.message.NewArrayMessage;
+import org.jnet.core.synchronizer.message.NewObjectMessage;
+import org.jnet.core.synchronizer.message.UpdateArrayMessage;
 import org.junit.Test;
 
 import com.google.common.collect.ImmutableMap;
@@ -46,11 +49,24 @@ public class LookAheadObjectSlaveTest extends AbstractLookAheadObjectTest {
 	}
 	
 	@Test
+	public void shouldHandleArraysOnEvolve() {
+		ComplexeObject complexeObject = new ComplexeObject();
+		testee = createTestee(complexeObject);
+		ChangedStateMessage message = new ChangedStateMessage(0);
+		ObjectId newObjectIdForIntArrays = new ObjectId(Integer.MAX_VALUE);
+		message.addNewObjectMessage(new NewArrayMessage(newObjectIdForIntArrays, int[].class, 2));
+		message.addUpdateObject(findObjectIdForObject(complexeObject), ImmutableMap.of("intArray", newObjectIdForIntArrays));
+		message.addUpdateObject(new UpdateArrayMessage(newObjectIdForIntArrays, ImmutableMap.of(0,7,1,8)));
+		testee().evolveLastTrustedState(message);
+		assertThat(complexeObject.intArray, is(new int[] {7, 8}));
+	}
+	
+	@Test
 	public void shouldSetNewObjectsOnEvolve() {
 		ComplexeObject complexeObject = new ComplexeObject();
 		testee = createTestee(complexeObject);
 		ChangedStateMessage message = new ChangedStateMessage(0);
-		message.addNewObject(new ObjectId(Integer.MAX_VALUE), new UpdateableTestobject());
+		message.addNewObjectMessage(new NewObjectMessage(new ObjectId(Integer.MAX_VALUE), UpdateableTestobject.class));
 		message.addUpdateObject(new ObjectId(Integer.MAX_VALUE), ImmutableMap.of("x", 100f, "speed", 30f));
 		message.addUpdateObject(findObjectIdForObject(complexeObject), ImmutableMap.of("nullObject", new ObjectId(Integer.MAX_VALUE)));
 		testee().evolveLastTrustedState(message);

@@ -97,6 +97,11 @@ public abstract class LookAheadObject<T> implements ObjectChangeProvider {
 		return metaDataManager.get(object.getClass());
 	}
 	
+	@Override
+	public MetaDataManager getMetaDataManager() {
+		return metaDataManager;
+	}
+	
 	protected void inventorizeObject(Object objectToInventorize) {
 		Unchecker.uncheck(() -> 
 			objectTraverser.traverse(objectToInventorize, false, false, (object, parent, accessor) -> {

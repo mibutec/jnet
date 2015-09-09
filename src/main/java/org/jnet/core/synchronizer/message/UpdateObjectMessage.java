@@ -11,14 +11,11 @@ import org.jnet.core.synchronizer.ObjectId;
 
 
 
-public class UpdateObjectMessage implements SynchronizationMessage {
-	private ObjectId objectId;
-	
+public class UpdateObjectMessage extends AbstractUpdateMessage {
 	private Map<String, Object> fieldsToUpdate;
 	
 	public UpdateObjectMessage(ObjectId objectId, Map<String, Object> fieldsToUpdate) {
-		super();
-		this.objectId = objectId;
+		super(objectId);
 		this.fieldsToUpdate = fieldsToUpdate;
 	}
 
@@ -31,11 +28,8 @@ public class UpdateObjectMessage implements SynchronizationMessage {
 			for (Entry<String, Object> entry : fieldsToUpdate.entrySet()) {
 				Field field = metaData.getField(entry.getKey());
 				Object newValue = entry.getValue();
-				if (newValue instanceof ObjectId) {
-					newValue = changeProvider.getObject((ObjectId) newValue);
-				}
 				field.setAccessible(true);
-				field.set(objectToUpdate, newValue);
+				field.set(objectToUpdate, unwrap(changeProvider, newValue));
 			}
 		});
 	}

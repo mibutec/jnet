@@ -1,11 +1,14 @@
 package org.jnet.core.synchronizer;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jnet.core.helper.BestTypeMatcher;
 import org.jnet.core.helper.BestTypeMatcher.TypeHandler;
 import org.jnet.core.helper.ObjectTraverser;
@@ -14,10 +17,16 @@ import org.jnet.core.helper.PojoHelper;
 import org.jnet.core.helper.Unchecker;
 import org.jnet.core.synchronizer.DefaultDiffIdentifier.AbstractTypeHandler;
 import org.jnet.core.synchronizer.message.ChangedStateMessage;
+import org.jnet.core.synchronizer.message.NewArrayMessage;
+import org.jnet.core.synchronizer.message.NewObjectMessage;
+import org.jnet.core.synchronizer.message.SynchronizationMessage;
+import org.jnet.core.synchronizer.message.UpdateArrayMessage;
 
 import com.google.common.base.Objects;
 
 public class DefaultDiffIdentifier<TYPE> implements DiffIdentifier<TYPE, Map<ObjectId, Object>> {
+	private static final Logger logger = LogManager.getLogger(DefaultDiffIdentifier.class);
+	
 	private final ObjectTraverser objectTraverser;
 	
 	private final ObjectReadProvider objectReadProvider;
@@ -29,6 +38,10 @@ public class DefaultDiffIdentifier<TYPE> implements DiffIdentifier<TYPE, Map<Obj
 		this.objectReadProvider = objectReadProvider;
 		this.objectTraverser = configuredObjectTraverser;
 		addTypeHandler(new ObjectDiffer(objectReadProvider));
+		
+		for (Class<? extends Object> arrayClass : PojoHelper.arrayTypes) {
+			addTypeHandler(new ArrayDiffer(arrayClass, objectReadProvider));
+		}
 		
 		for (AbstractTypeHandler<?, ?> handler : config.getTypeHandlers()) {
 			addTypeHandler(handler);
@@ -46,6 +59,7 @@ public class DefaultDiffIdentifier<TYPE> implements DiffIdentifier<TYPE, Map<Obj
 	
 	@Override
 	public void findDiff(Map<ObjectId, Object> before, TYPE afterState, ChangedStateMessage message) {
+		logger.debug("starting to find object diffs");
 		addNewObjects(before, afterState, message);
 		addChangedObjects(before, afterState, message);
 	}
@@ -66,6 +80,7 @@ public class DefaultDiffIdentifier<TYPE> implements DiffIdentifier<TYPE, Map<Obj
 		return ret;
 	}
 	
+	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private void addNewObjects(Map<ObjectId, ?> beforeState, TYPE afterState, ChangedStateMessage message) {
 		Set<ObjectId> afterObjects = createMapRepresentation(afterState).keySet();
 		Set<ObjectId> beforeObjects = beforeState.keySet();
@@ -77,7 +92,10 @@ public class DefaultDiffIdentifier<TYPE> implements DiffIdentifier<TYPE, Map<Obj
 		sameObjects.retainAll(afterObjects);
 		
 		for (ObjectId newObjectId : newObjects) {
-			message.addNewObject(newObjectId, objectReadProvider.getObject(newObjectId));
+			Object objectToAdd = objectReadProvider.getObject(newObjectId);
+			logger.debug("adding new Object message for {}: {}", newObjectId, objectToAdd.getClass().getName());
+			AbstractTypeHandler differ = bestTypeMatcher.getBestMatchingHandler(objectToAdd.getClass());
+			message.addNewObjectMessage(differ.createnewObjectMessage(newObjectId, objectToAdd));
 		}
 	}
 	
@@ -107,6 +125,18 @@ public class DefaultDiffIdentifier<TYPE> implements DiffIdentifier<TYPE, Map<Obj
 			this.objectReadProvider = objectReadProvider;
 			this.handlesSubobjectsItself = handlesSubobjectsItself;
 		}
+		
+		protected Object wrapObject(Object o) {
+			if (o == null) {
+				return null;
+			}
+			if (PojoHelper.isPrimitive(o.getClass())) {
+				return o;
+			}
+			
+			return objectReadProvider.getIdForObject(o);
+		}
+
 
 		protected AbstractTypeHandler(Class<TYPE> handledType, ObjectReadProvider objectReadProvider) {
 			this(handledType, objectReadProvider, false);
@@ -116,6 +146,10 @@ public class DefaultDiffIdentifier<TYPE> implements DiffIdentifier<TYPE, Map<Obj
 			return null;
 		}
 		
+		public SynchronizationMessage createnewObjectMessage(ObjectId objectId, TYPE object) {
+			return new NewObjectMessage(objectId, object.getClass());
+		}
+		
 		public abstract REPRESENTATION_TYPE createDiffRepresentation(TYPE object);
 
 		public abstract void addChangeMessages(ObjectId objectId, REPRESENTATION_TYPE before, Object after, ChangedStateMessage message);
@@ -123,6 +157,8 @@ public class DefaultDiffIdentifier<TYPE> implements DiffIdentifier<TYPE, Map<Obj
 }
 
 class ObjectDiffer extends AbstractTypeHandler<Object, Map<String, Object>> {
+	private static final Logger logger = LogManager.getLogger(ObjectDiffer.class);
+
 
 	public ObjectDiffer(ObjectReadProvider objectReadProvider) {
 		super(Object.class, objectReadProvider);
@@ -139,6 +175,7 @@ class ObjectDiffer extends AbstractTypeHandler<Object, Map<String, Object>> {
 				}
 			});
 			if (changedFields.size() > 0) {
+				logger.debug("adding new updateObject message for {}: {}", objectId, changedFields);
 				message.addUpdateObject(objectId, changedFields);
 			}
 		});
@@ -155,35 +192,39 @@ class ObjectDiffer extends AbstractTypeHandler<Object, Map<String, Object>> {
 			return ret;
 		});
 	}
-	
-	private Object wrapObject(Object o) {
-		if (o == null) {
-			return null;
-		}
-		if (PojoHelper.isPrimitive(o.getClass())) {
-			return o;
-		}
-		
-		return objectReadProvider.getIdForObject(o);
-	}
 }
 
-class ArrayDiffer extends AbstractTypeHandler<Object, Object[]> {
+class ArrayDiffer extends AbstractTypeHandler<Object, Object> {
+	private static final Logger logger = LogManager.getLogger(ObjectDiffer.class);
 
-	public ArrayDiffer(Class<Object> handledType, ObjectReadProvider objectReadProvider) {
-		super(handledType, objectReadProvider);
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public ArrayDiffer(Class<?> handledType, ObjectReadProvider objectReadProvider) {
+		super((Class) handledType, objectReadProvider);
 	}
 
 	@Override
-	public Object[] createDiffRepresentation(Object object) {
-		// TODO Auto-generated method stub
-		return null;
+	public Object createDiffRepresentation(Object object) {
+		return object;
 	}
 
 	@Override
-	public void addChangeMessages(ObjectId objectId, Object[] before, Object after, ChangedStateMessage message) {
-		// TODO Auto-generated method stub
+	public void addChangeMessages(ObjectId objectId, Object before, Object after, ChangedStateMessage message) {
+		Map<Integer, Object> changedIndexes = new HashMap<Integer, Object>();
+		for (int i = 0; i < Array.getLength(after); i++) {
+			Object afterValue = Array.get(after, i);
+			if (before == null || Array.get(before, i) != afterValue) {
+				changedIndexes.put(i, wrapObject(afterValue));
+			}
+		}
 		
+		if (changedIndexes.size() > 0) {
+			logger.debug("adding new updateArray message for {}: {}", objectId, changedIndexes);
+			message.addUpdateObject(new UpdateArrayMessage(objectId, changedIndexes));
+		}
 	}
 	
+	@Override
+	public SynchronizationMessage createnewObjectMessage(ObjectId objectId, Object object) {
+		return new NewArrayMessage(objectId, object.getClass(), Array.getLength(object));
+	}
 }
