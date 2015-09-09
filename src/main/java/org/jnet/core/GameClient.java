@@ -6,20 +6,17 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.message.MapMessage;
 import org.jnet.core.connection.Connection;
 import org.jnet.core.connection.messages.EventMessage;
 import org.jnet.core.connection.messages.Message;
 import org.jnet.core.connection.messages.NewStateMessage;
 import org.jnet.core.connection.messages.TimeResponseMessage;
-import org.jnet.core.synchronizer.Event;
 import org.jnet.core.synchronizer.MetaDataManager;
 import org.jnet.core.synchronizer.ObjectId;
+import org.jnet.core.synchronizer.SerializableEvent;
 
 
 public class GameClient<MAIN_ENTITY> extends AbstractGameEngine {
@@ -82,7 +79,7 @@ public class GameClient<MAIN_ENTITY> extends AbstractGameEngine {
 	}
 	
 	@Override
-	protected void distributeEvent(Event event) {
+	protected void distributeEvent(SerializableEvent event) {
 		try {
 			connection.send(new EventMessage(event));
 		} catch (Exception e) {

@@ -30,7 +30,7 @@ public class State<T> implements Cloneable {
 					timestamp = e.getTs();
 				}
 				
-				e.getEvent().invoke(state, e.getArgs());
+				e.invoke(state);
 			} catch (Exception e1) {
 				throw new RuntimeException(e1);
 			}

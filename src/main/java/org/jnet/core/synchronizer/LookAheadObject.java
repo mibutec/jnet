@@ -9,8 +9,8 @@ import java.util.stream.Collectors;
 
 import org.jnet.core.helper.CompareSameWrapper;
 import org.jnet.core.helper.ObjectTraverser;
-import org.jnet.core.helper.ObjectTraverser.Consumer;
 import org.jnet.core.helper.Unchecker;
+import org.jnet.core.synchronizer.DefaultDiffIdentifier.AbstractTypeHandler;
 
 public abstract class LookAheadObject<T> implements ObjectChangeProvider {
 	protected final Map<ObjectId, CompareSameWrapper<?>> managedObjects = new HashMap<>();
@@ -19,8 +19,6 @@ public abstract class LookAheadObject<T> implements ObjectChangeProvider {
 	protected final MetaDataManager metaDataManager = new MetaDataManager();
 	
 	protected final ObjectTraverser objectTraverser;
-	
-	private final SynchronizeConsumer consumer = new SynchronizeConsumer();
 	
 	protected List<Event> sortedEvents = new LinkedList<>();
 
@@ -48,6 +46,12 @@ public abstract class LookAheadObject<T> implements ObjectChangeProvider {
 			this.lateEventStrategy = config.getLateEventStrategy();
 		} else {
 			this.lateEventStrategy = LateEventStrategy.dismiss;
+		}
+		
+		for (AbstractTypeHandler<?, ?> handler : config.getTypeHandlers()) {
+			if (handler.getFieldHandler() != null) {
+				objectTraverser.addFieldHandler(handler.getFieldHandler());
+			}
 		}
 		
 		inventorizeObject(managedObject);
@@ -93,28 +97,16 @@ public abstract class LookAheadObject<T> implements ObjectChangeProvider {
 		return metaDataManager.get(object.getClass());
 	}
 	
-	protected void inventorizeObject(Object object) {
+	protected void inventorizeObject(Object objectToInventorize) {
 		Unchecker.uncheck(() -> 
-			objectTraverser.traverse(object, consumer)
-		);
-	}
-	
-	private class SynchronizeConsumer implements Consumer {
-
-		@Override
-		public boolean onObjectFound(Object object, Object parent, String accessor) {
-			if (object == null) {
-				return false;
-			}
-			Class<?> clazz = object.getClass();
-			if (!ObjectTraverser.isPrimitive(clazz)) {
+			objectTraverser.traverse(objectToInventorize, false, false, (object, parent, accessor) -> {
 				CompareSameWrapper<?> wrapper = new CompareSameWrapper<Object>(object);
 				if (!managedObjects.values().contains(wrapper)) {
-					ObjectId id = metaDataManager.createObjectId(clazz);
+					ObjectId id = metaDataManager.createObjectId(object.getClass());
 					addObject(id, object);
 				}
-			}
-			return true;
-		}
+				return true;
+			})
+		);
 	}
 }

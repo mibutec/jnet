@@ -1,44 +1,33 @@
 package org.jnet.core.helper;
 
 import java.lang.reflect.Array;
-import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+import org.jnet.core.helper.BestTypeMatcher.TypeHandler;
+import org.jnet.core.helper.ObjectTraverser.ConfiguredTraverser;
 import org.jnet.core.helper.ObjectTraverser.Consumer;
 import org.jnet.core.helper.ObjectTraverser.FieldHandler;
-import org.jnet.core.helper.ObjectTraverser.Traverser;
+
+import static org.jnet.core.helper.PojoHelper.arrayTypes;
+import static org.jnet.core.helper.PojoHelper.isPrimitive;
 
 
 public class ObjectTraverser {
-	private static final List<Class<?>> primitives = Arrays.asList(Boolean.class, Byte.class, Short.class,
-			Character.class, Integer.class, Long.class, Float.class, Double.class, String.class);
-	
-	private static final List<Class<?>> arrays = Arrays.asList(boolean[].class, byte[].class, short[].class, char[].class, int[].class, 
-			long[].class, float[].class, double[].class, Object[].class);
+	private BestTypeMatcher<FieldHandler<?>> bestTypeMatcher = new BestTypeMatcher<>();
 
-	public static boolean isPrimitive(Class<?> clazz) {
-		return clazz.isPrimitive() || primitives.contains(clazz);
-	}
-	
-	private Map<Class<?>, FieldHandler<?>> handlers = new HashMap<>();
-	
 	int modifiersToIgnore = Modifier.STATIC;
-
+	
 	public ObjectTraverser() {
 		addFieldHandler(new ObjectFieldHandler());
 		addFieldHandler(new CollectionFieldHandler());
 		addFieldHandler(new MapFieldHandler());
-		for (Class<?> arrayClass : arrays) {
+		for (Class<?> arrayClass : arrayTypes) {
 			addFieldHandler(new ArrayFieldHandler(arrayClass));
 		}
 	}
@@ -47,50 +36,35 @@ public class ObjectTraverser {
 		this.modifiersToIgnore = newValue;
 	}
 	
+	public int getModifiersToIgnore() {
+		return modifiersToIgnore;
+	}
+
+	public void setModifiersToIgnore(int modifiersToIgnore) {
+		this.modifiersToIgnore = modifiersToIgnore;
+	}
+
 	public void addFieldHandler(FieldHandler<?> fieldHandler) {
-		handlers.put(fieldHandler.handledType, fieldHandler);
+		bestTypeMatcher.addFieldHandler(fieldHandler);
 	}
 	
 	public void traverse(Object object, Consumer consumer) {
-		Unchecker.uncheck(() ->	traverse(object, null, null, consumer, new HashSet<>()));
+		traverse(object, true, true, consumer);
 	}
 	
-	/**
-	 * Finds the handler, that can handle this class best. This means:
-	 * a. The handlers class is assignable from the given class
-	 * b. If there are several matches it takes the one "nearst" to the given class in a sense of inheritance
-	 *    If you have a handler for Object, List, LinkedList and your Type is "ExtendedLinkedList", it would take LinkedList handler
-	 *    
-	 * If you find several handlers that can handle this type but are not in a direct inheritance line you get an error
-	 * Example: you have a handler for the interface House and one for the interface Boat, you get an error for the Class HouseBoat
-	 * until you add a handler for Houseboat. Handling only part could lead to unexpected behavior.
-	 * 
-	 * TODO: How about using both handlers?
-
-	 * @param clazz
-	 * @return best matching handler
-	 */
-	private FieldHandler<?> getBestMatchingHandler(Class<?> clazz) {
-		 List<FieldHandler<?>> sortedHandlers = handlers.values().stream().filter(handler -> handler.canHandle(clazz)).sorted().collect(Collectors.toList());
-		 FieldHandler<?> first = sortedHandlers.get(0);
-		 if (sortedHandlers.size() == 1) {
-			 return first;
-		 }
-		 
-		 FieldHandler<?> second = sortedHandlers.get(1);
-		 if (first.compareTo(second) == 0) {
-			 throw new RuntimeException("couldn't determine best matching handler for class " + clazz.getName() + ", both match: " + first + " and " + second);
-		 }
-
-		 return first;
+	public void traverse(Object object, boolean consumeNull, boolean consumePrimitives, Consumer consumer) {
+		Unchecker.uncheck(() ->	traverse(object, null, null, consumer, new HashSet<>(), consumeNull, consumePrimitives));
 	}
 	
 	@SuppressWarnings("unchecked")
-	void traverse(Object object, Object parent,  String accessor, Consumer consumer, Set<CompareSameWrapper<?>> cycleDetector) throws Exception {
-		if (!consumer.onObjectFound(object, parent, accessor)) {
-			return;
+	void traverse(Object object, Object parent,  String accessor, Consumer consumer, Set<CompareSameWrapper<?>> cycleDetector, boolean consumeNull, boolean consumePrimitives) throws Exception {
+		
+		if ((consumeNull || object != null) && (consumePrimitives || !isPrimitive(object.getClass()))) {
+			if (!consumer.onObjectFound(object, parent, accessor)) {
+				return;
+			}
 		}
-
+		
 		if (object == null) {
 			return;
 		}
@@ -107,64 +81,49 @@ public class ObjectTraverser {
 			}
 		}
 
-		FieldHandler<Object> handler = (FieldHandler<Object>) getBestMatchingHandler(clazz);
-		handler.handleObject(object, new Traverser(this, cycleDetector), consumer);
+		FieldHandler<Object> handler = (FieldHandler<Object>) bestTypeMatcher.getBestMatchingHandler(clazz);
+		handler.handleObject(object, new ConfiguredTraverser(this, cycleDetector, consumeNull, consumePrimitives), consumer);
 	}
 	
 	public static interface Consumer {
 		public boolean onObjectFound(Object object, Object parent, String accessor);
 	}
 	
-	public static abstract class FieldHandler<T> implements Comparable<FieldHandler<?>> {
-		private final Class<T> handledType;
-		
+	public static abstract class FieldHandler<T> extends TypeHandler<T> {
 		protected FieldHandler(Class<T> handledType) {
-			this.handledType = handledType;
+			super(handledType);
 		}
-
-		public boolean canHandle(Class<?> clazz) {
-			return handledType.isAssignableFrom(clazz);
-		}
-
-		public abstract void handleObject(T object, Traverser traverser, Consumer consumer) throws Exception;
-
-		@Override
-		public int compareTo(FieldHandler<?> other) {
-			if (other.handledType == handledType) {
-				return 0;
-			}
-			
-			if (other.handledType.isAssignableFrom(handledType)) {
-				return -1;
-			}
-			
-			if (other.handledType.isAssignableFrom(handledType)) {
-				return 1;
-			}
-			
-			return 0;
-		}
+		
+		public abstract void handleObject(T object, ConfiguredTraverser traverser, Consumer consumer) throws Exception;
 	}
 	
 	/**
 	 * Class used to shortcut the the call to traverse from an FieldHandler. This way you don't
-	 * have to handle the Cycle Detector set in Handlers
+	 * have to handle the Cycle Detector and others set in Handlers
 	 * @author Michael
 	 *
 	 */
-	public class Traverser {
+	public class ConfiguredTraverser {
 		final ObjectTraverser objectTraverser;
 		
 		final Set<CompareSameWrapper<?>> cycleDetector;
+		
+		final boolean consumeNull;
+		
+		final boolean consumePrimitives;
 
-		public Traverser(ObjectTraverser objectTraverser, Set<CompareSameWrapper<?>> cycleDetector) {
+		private ConfiguredTraverser(ObjectTraverser objectTraverser, Set<CompareSameWrapper<?>> cycleDetector,
+				boolean consumeNull, boolean consumePrimitives) {
 			super();
 			this.objectTraverser = objectTraverser;
 			this.cycleDetector = cycleDetector;
+			this.consumeNull = consumeNull;
+			this.consumePrimitives = consumePrimitives;
 		}
-		
+
+
 		public void goOn(Object object, Object parent,  String accessor, Consumer consumer) throws Exception {
-			objectTraverser.traverse(object, parent, accessor, consumer, cycleDetector);
+			objectTraverser.traverse(object, parent, accessor, consumer, cycleDetector, consumeNull, consumePrimitives);
 		}
 	}
 }
@@ -176,27 +135,14 @@ class ObjectFieldHandler extends FieldHandler<Object> {
 	}
 
 	@Override
-	public void handleObject(Object object, Traverser traverser, Consumer consumer) throws Exception {
-		Class<?> clazz = object.getClass();
-		int mofifiersToIgnore = traverser.objectTraverser.modifiersToIgnore;
-		
-		while (clazz != Object.class) {
-			Field[] fields = clazz.getDeclaredFields();
-			for (Field field : fields) {
-				if ((field.getModifiers() & mofifiersToIgnore) != 0) {
-					continue;
-				}
-				field.setAccessible(true);
-				Object fieldValue = field.get(object);
-				
-				if ((field.getModifiers() & Modifier.STATIC) != 0) {
-					traverser.goOn(fieldValue, clazz, field.getName(), consumer);
-				} else {
-					traverser.goOn(fieldValue, object, field.getName(), consumer);
-				}
+	public void handleObject(Object object, ConfiguredTraverser traverser, Consumer consumer) throws Exception {
+		PojoHelper.forEachField(object, traverser.objectTraverser.modifiersToIgnore, (field, value) -> {
+			if ((field.getModifiers() & Modifier.STATIC) != 0) {
+				traverser.goOn(value, object.getClass(), field.getName(), consumer);
+			} else {
+				traverser.goOn(value, object, field.getName(), consumer);
 			}
-			clazz = clazz.getSuperclass();
-		}
+		});
 	}
 }
 
@@ -208,7 +154,7 @@ class CollectionFieldHandler extends FieldHandler<Collection> {
 	}
 
 	@Override
-	public void handleObject(Collection col, Traverser traverser, Consumer consumer) throws Exception {
+	public void handleObject(Collection col, ConfiguredTraverser traverser, Consumer consumer) throws Exception {
 		int i = 0;
 		for (Iterator<Object> it = col.iterator(); it.hasNext(); ) {
 			traverser.goOn(it.next(), col, Integer.toString(i++), consumer);
@@ -224,7 +170,7 @@ class MapFieldHandler extends FieldHandler<Map> {
 	}
 	
 	@Override
-	public void handleObject(Map map, Traverser traverser, Consumer consumer) throws Exception {
+	public void handleObject(Map map, ConfiguredTraverser traverser, Consumer consumer) throws Exception {
 		int i = 0;
 		for (Object o : map.entrySet()) {
 			Entry entry = (Entry) o;
@@ -243,7 +189,7 @@ class ArrayFieldHandler extends FieldHandler<Object> {
 	}
 
 	@Override
-	public void handleObject(Object array, Traverser traverser, Consumer consumer) throws Exception {
+	public void handleObject(Object array, ConfiguredTraverser traverser, Consumer consumer) throws Exception {
 	    int length = Array.getLength(array);
 	    for (int i = 0; i < length; i ++) {
 	        Object arrayElement = Array.get(array, i);

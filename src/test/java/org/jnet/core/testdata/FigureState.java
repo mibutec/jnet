@@ -70,7 +70,6 @@ public class FigureState implements UpdateableObject {
 
 	@Override
 	public void update(long delta) {
-		System.out.println(delta);
 		if (targetX > x) {
 			x = Math.min(x + speed * delta, targetX);
 		} else {

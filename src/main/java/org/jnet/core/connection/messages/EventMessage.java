@@ -7,17 +7,17 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.lang.reflect.Method;
 
-import org.jnet.core.synchronizer.Event;
 import org.jnet.core.synchronizer.ObjectId;
+import org.jnet.core.synchronizer.SerializableEvent;
 
 public class EventMessage extends AbstractMessage {
-	private Event event;
+	private SerializableEvent event;
 	
 	public EventMessage() {
 		super();
 	}
 
-	public EventMessage(Event event) {
+	public EventMessage(SerializableEvent event) {
 		super();
 		this.event = event;
 	}
@@ -49,10 +49,10 @@ public class EventMessage extends AbstractMessage {
 		Method method = Class.forName(classname).getDeclaredMethod(methodName, parameterTypes);
 		Object[] args = (Object[]) in.readObject();
 		
-		event = new Event(id, ts, method, args);
+		event = new SerializableEvent(id, ts, method, args);
 	}
 
-	public Event getEvent() {
+	public SerializableEvent getEvent() {
 		return event;
 	}
 }

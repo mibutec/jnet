@@ -100,7 +100,7 @@ public abstract class AbstractLookAheadObjectTest {
 	public void shouldHandleOneEventCorrectly() throws Exception {
 		UpdateableTestobject object = new UpdateableTestobject();
 		testee = createTestee(object);
-		testee.addEvent(new Event(findObjectIdForObject(object), 500, setXMethod, 0));
+		testee.addEvent(new SerializableEvent(findObjectIdForObject(object), 500, setXMethod, 0));
 		assertThat(((UpdateableTestobject) testee.getStateForTimestamp(498)).getX(), is(249));
 		assertThat(((UpdateableTestobject) testee.getStateForTimestamp(500)).getX(), is(0));
 		assertThat(((UpdateableTestobject) testee.getStateForTimestamp(1000)).getX(), is(250));
@@ -110,8 +110,8 @@ public abstract class AbstractLookAheadObjectTest {
 	public void shouldHandleSeveralEventsCorrectly() throws Exception {
 		UpdateableTestobject object = new UpdateableTestobject();
 		testee = createTestee(object);
-		testee.addEvent(new Event(findObjectIdForObject(object), 500, setXMethod, 0));
-		testee.addEvent(new Event(findObjectIdForObject(object), 1000, setXMethod, 0));
+		testee.addEvent(new SerializableEvent(findObjectIdForObject(object), 500, setXMethod, 0));
+		testee.addEvent(new SerializableEvent(findObjectIdForObject(object), 1000, setXMethod, 0));
 		assertThat(((UpdateableTestobject) testee.getStateForTimestamp(498)).getX(), is(249));
 		assertThat(((UpdateableTestobject) testee.getStateForTimestamp(500)).getX(), is(0));
 		assertThat(((UpdateableTestobject) testee.getStateForTimestamp(998)).getX(), is(249));
@@ -123,7 +123,7 @@ public abstract class AbstractLookAheadObjectTest {
 	public void shouldIgnoreEventsInThePast() {
 		UpdateableTestobject object = new UpdateableTestobject();
 		testee = createTestee(object);
-		testee.addEvent(new Event(findObjectIdForObject(object), 3, setXMethod, Integer.MAX_VALUE));
+		testee.addEvent(new SerializableEvent(findObjectIdForObject(object), 3, setXMethod, Integer.MAX_VALUE));
 		testee.lastTrustedState.setTimestamp(10);
 		assertThat(((UpdateableTestobject) testee.getStateForTimestamp(1000)).getX(), is(495));
 	}
@@ -132,9 +132,9 @@ public abstract class AbstractLookAheadObjectTest {
 	public void shouldRemoveLateEventsOnCleanup() {
 		UpdateableTestobject object = new UpdateableTestobject();
 		testee = createTestee(object);
-		testee.addEvent(new Event(findObjectIdForObject(object), 500, setXMethod, 0));
-		testee.addEvent(new Event(findObjectIdForObject(object), 1000, setXMethod, 0));
-		testee.addEvent(new Event(findObjectIdForObject(object), 1500, setXMethod, 0));
+		testee.addEvent(new SerializableEvent(findObjectIdForObject(object), 500, setXMethod, 0));
+		testee.addEvent(new SerializableEvent(findObjectIdForObject(object), 1000, setXMethod, 0));
+		testee.addEvent(new SerializableEvent(findObjectIdForObject(object), 1500, setXMethod, 0));
 		assertThat(testee.sortedEvents.size(), is(3));
 		testee.lastTrustedState.setTimestamp(502);
 		testee.cleanup();

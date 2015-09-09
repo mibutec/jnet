@@ -28,6 +28,7 @@ import org.jnet.core.synchronizer.Event;
 import org.jnet.core.synchronizer.MetaData;
 import org.jnet.core.synchronizer.MetaDataManager;
 import org.jnet.core.synchronizer.ObjectId;
+import org.jnet.core.synchronizer.SerializableEvent;
 import org.jnet.core.synchronizer.State;
 
 public abstract class AbstractGameEngine implements AutoCloseable {
@@ -99,7 +100,7 @@ public abstract class AbstractGameEngine implements AutoCloseable {
 
 	public abstract int serverTime();
 
-	protected abstract void distributeEvent(Event event);
+	protected abstract void distributeEvent(SerializableEvent event);
 
 	@SuppressWarnings("unchecked")
 	public <T> T createProxy(T impl) {
@@ -254,7 +255,7 @@ class InvokeHandler<T> implements MethodHandler {
 
 	public Object handleEvent(int eventTime, Method implMethod, Object[] args, boolean doDistribute) throws Throwable {
 		if (implMethod.getAnnotation(Action.class) != null) {
-			Event event = new Event(id, eventTime, implMethod, args);
+			SerializableEvent event = new SerializableEvent(id, eventTime, implMethod, args);
 			addEvent(event);
 			if (doDistribute) {
 				gameEngine.distributeEvent(event);

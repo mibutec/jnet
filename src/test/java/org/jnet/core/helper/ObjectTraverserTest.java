@@ -13,7 +13,7 @@ import java.util.Set;
 
 import org.jnet.core.helper.ObjectTraverser.Consumer;
 import org.jnet.core.helper.ObjectTraverser.FieldHandler;
-import org.jnet.core.helper.ObjectTraverser.Traverser;
+import org.jnet.core.helper.ObjectTraverser.ConfiguredTraverser;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -460,7 +460,7 @@ class TestFieldHandler<T> extends FieldHandler<T> {
 	}
 
 	@Override
-	public void handleObject(T object, Traverser traverser, Consumer consumer) throws Exception {
+	public void handleObject(T object, ConfiguredTraverser traverser, Consumer consumer) throws Exception {
 	}
 }
 

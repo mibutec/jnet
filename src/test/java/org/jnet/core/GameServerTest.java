@@ -8,6 +8,7 @@ import org.jnet.core.connection.Connection;
 import org.jnet.core.connection.messages.NewStateMessage;
 import org.jnet.core.synchronizer.Event;
 import org.jnet.core.synchronizer.ObjectId;
+import org.jnet.core.synchronizer.SerializableEvent;
 import org.jnet.core.testdata.FigureState;
 import org.jnet.core.tools.Sleep;
 import org.junit.Before;
@@ -52,7 +53,7 @@ public class GameServerTest implements Sleep {
 		serverTime = 10000;
 		state.gotoX(1000);
 		Assert.assertEquals(0f, state.getX());
-		server.receiveEvent(new Event(id, 9000, gotoMethod, new Object[] {1000}));
+		server.receiveEvent(new SerializableEvent(id, 9000, gotoMethod, new Object[] {1000}));
 		Assert.assertEquals(50f, state.getX());
 	}
 	
@@ -68,7 +69,7 @@ public class GameServerTest implements Sleep {
 		serverTime = 10000;
 		state.gotoX(1000);
 		Assert.assertEquals(0f, state.getX());
-		server.receiveEvent(new Event(id, 5000, gotoMethod, new Object[] {1000}));
+		server.receiveEvent(new SerializableEvent(id, 5000, gotoMethod, new Object[] {1000}));
 		Assert.assertEquals(75f, state.getX());
 	}
 	

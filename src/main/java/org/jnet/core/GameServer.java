@@ -16,6 +16,7 @@ import org.jnet.core.connection.messages.TimeRequestMessage;
 import org.jnet.core.connection.messages.TimeResponseMessage;
 import org.jnet.core.synchronizer.Event;
 import org.jnet.core.synchronizer.MetaDataManager;
+import org.jnet.core.synchronizer.SerializableEvent;
 
 
 public class GameServer extends AbstractGameEngine {
@@ -54,7 +55,7 @@ public class GameServer extends AbstractGameEngine {
 	protected void handleMessage(Message message) {
 		if (message instanceof EventMessage) {
 			EventMessage eventMessage = (EventMessage) message;
-			logger.debug("new event for id {} arrived at server", eventMessage.getEvent().getObjectId());
+			logger.debug("new event for id {} arrived at server", eventMessage.getEvent());
 			receiveEvent(eventMessage.getEvent());
 		} else if (message instanceof TimeRequestMessage) {
 			TimeRequestMessage trMessage = (TimeRequestMessage) message;
@@ -69,7 +70,7 @@ public class GameServer extends AbstractGameEngine {
 		}
 	}
 	
-	public void receiveEvent(Event event) {
+	public void receiveEvent(SerializableEvent event) {
 		try {
 			int ts = event.getTs();
 			if (event.getTs() < serverTime() - acceptedDelay) {
@@ -82,7 +83,7 @@ public class GameServer extends AbstractGameEngine {
 	}
 	
 	@Override
-	public void distributeEvent(Event event) {
+	public void distributeEvent(SerializableEvent event) {
 		logger.debug("distributing result of event {} with id {} to {} clients", event, event.getObjectId(), connections.size());
 		connections.stream().forEach(cc -> {
 			try {

@@ -4,7 +4,7 @@ import org.jnet.core.helper.CompareSameWrapper;
 import org.jnet.core.synchronizer.message.ChangedStateMessage;
 
 public class LookAheadObjectMaster<T> extends LookAheadObject<T> implements ObjectReadProvider {
-	private final DiffIdentifier<T> diffIdentifier;
+	private final DiffIdentifier<T, ?> diffIdentifier;
 
 	
 	public LookAheadObjectMaster(T objectToSynchronize, LookAheadObjectConfiguration<T> config) {
@@ -13,7 +13,7 @@ public class LookAheadObjectMaster<T> extends LookAheadObject<T> implements Obje
 		if (config.getDiffIdentifier() != null) {
 			this.diffIdentifier = config.getDiffIdentifier();
 		} else {
-			this.diffIdentifier = new DefaultDiffIdentifier<>(this);
+			this.diffIdentifier = new DefaultDiffIdentifier<>(config, this, objectTraverser);
 		}
 	}
 
@@ -25,15 +25,14 @@ public class LookAheadObjectMaster<T> extends LookAheadObject<T> implements Obje
 		return new ChangedStateMessage(timestamp);
 	}
 	
+	@SuppressWarnings("unchecked")
 	public ChangedStateMessage evolveLastTrustedState(int diff) {
 		int newTimestamp = lastTrustedState.getTimestamp() + diff;
-		T beforeState = diffIdentifier.prepareObject(lastTrustedState.getState());
-		System.out.println(managedObjects);
+		Object beforeState = diffIdentifier.prepareObject(lastTrustedState.getState());
 		lastTrustedState.updateState(sortedEvents, newTimestamp);
-		System.out.println(managedObjects);
 		inventorizeObject(lastTrustedState.getState());
 		ChangedStateMessage message = createMessage(newTimestamp);
-		diffIdentifier.findDiff(beforeState, lastTrustedState.getState(), message);
+		((DiffIdentifier<T, Object>) diffIdentifier).findDiff(beforeState, lastTrustedState.getState(), message);
 		
 		cleanup();
 		return message;

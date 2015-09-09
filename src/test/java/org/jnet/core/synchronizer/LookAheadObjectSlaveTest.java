@@ -62,8 +62,8 @@ public class LookAheadObjectSlaveTest extends AbstractLookAheadObjectTest {
 	public void shouldHandleEventsCorrectlyAfterEvolve() {
 		UpdateableTestobject object = new UpdateableTestobject();
 		testee = createTestee(object);
-		testee.addEvent(new Event(findObjectIdForObject(object), 500, setXMethod, 0));
-		testee.addEvent(new Event(findObjectIdForObject(object), 1000, setXMethod, 0));
+		testee.addEvent(new SerializableEvent(findObjectIdForObject(object), 500, setXMethod, 0));
+		testee.addEvent(new SerializableEvent(findObjectIdForObject(object), 1000, setXMethod, 0));
 		assertThat(((UpdateableTestobject) testee.getStateForTimestamp(498)).getX(), is(249));
 		assertThat(((UpdateableTestobject) testee.getStateForTimestamp(502)).getX(), is(1));
 		
