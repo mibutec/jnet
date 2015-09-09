@@ -60,8 +60,9 @@ public class LookAheadObjectMasterTest extends AbstractLookAheadObjectTest {
 		testee.addEvent(new DirectInvokeEvent(3, () -> object.simple2 = new SimpleObject()));
 		ChangedStateMessage createdMessage = testee().evolveLastTrustedState(100);
 		Mockito.verify(createdMessage).addUpdateObject(testee().getIdForObject(object.simple1), ImmutableMap.of("string", "Bulla"));
-		Mockito.verify(createdMessage).addUpdateObject(testee().getIdForObject(object), ImmutableMap.of("simple1", new ObjectId(1001)));
-		Mockito.verify(createdMessage).addUpdateObject(any(), eq(ImmutableMap.of("string", "michael", "aLong", 42l)));
+		Mockito.verify(createdMessage).addUpdateObject(testee().getIdForObject(object), ImmutableMap.of("simple2", findObjectIdForObject(object.simple2)));
+		Mockito.verify(createdMessage).addUpdateObject(any(), eq(ImmutableMap.of("string", "string", "aLong", 42l)));
+		Mockito.verify(createdMessage, times(3)).addUpdateObject(any(), any());
 	}
 	
 	@Test

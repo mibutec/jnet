@@ -133,8 +133,8 @@ class ObjectDiffer extends AbstractTypeHandler<Object, Map<String, Object>> {
 		Unchecker.uncheck(() -> {
 			Map<String, Object> changedFields = new HashMap<>();
 			PojoHelper.forEachField(after, Modifier.STATIC | Modifier.TRANSIENT, (field, value) -> {
-				
-				if (before == null || !Objects.equal(value, before.get(field.getName()))) {
+				value = wrapObject(value);
+				if (before == null || !Objects.equal(before.get(field.getName()), value)) {
 					changedFields.put(field.getName(), value);
 				}
 			});
