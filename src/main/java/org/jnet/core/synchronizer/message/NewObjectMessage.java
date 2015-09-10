@@ -24,7 +24,6 @@ public class NewObjectMessage implements SynchronizationMessage {
 
 	@Override
 	public void apply(ObjectChangeProvider changeProvider) {
-		System.out.println("add " + objectId);
 		Unchecker.uncheck(() -> changeProvider.addObject(objectId, createInstance()));
 	}
 	

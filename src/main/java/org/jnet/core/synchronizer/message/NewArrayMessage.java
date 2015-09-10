@@ -16,10 +16,7 @@ public class NewArrayMessage extends NewObjectMessage {
 	
 	@Override
 	protected Object createInstance() throws Exception {
-		Object ret = Array.newInstance(Class.forName(className).getComponentType(), length);
-		System.out.println(ret);
-		System.out.println(new int[2]);
-		return ret;
+		return Array.newInstance(Class.forName(className).getComponentType(), length);
 	}
 	
 	@Override

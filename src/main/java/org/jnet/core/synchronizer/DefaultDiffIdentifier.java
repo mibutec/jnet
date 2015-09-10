@@ -21,6 +21,7 @@ import org.jnet.core.synchronizer.message.NewArrayMessage;
 import org.jnet.core.synchronizer.message.NewObjectMessage;
 import org.jnet.core.synchronizer.message.SynchronizationMessage;
 import org.jnet.core.synchronizer.message.UpdateArrayMessage;
+import org.jnet.core.synchronizer.message.UpdateSetMessage;
 
 import com.google.common.base.Objects;
 
@@ -38,6 +39,7 @@ public class DefaultDiffIdentifier<TYPE> implements DiffIdentifier<TYPE, Map<Obj
 		this.objectReadProvider = objectReadProvider;
 		this.objectTraverser = configuredObjectTraverser;
 		addTypeHandler(new ObjectDiffer(objectReadProvider));
+		addTypeHandler(new SetDiffer(objectReadProvider));
 		
 		for (Class<? extends Object> arrayClass : PojoHelper.arrayTypes) {
 			addTypeHandler(new ArrayDiffer(arrayClass, objectReadProvider));
@@ -152,7 +154,7 @@ public class DefaultDiffIdentifier<TYPE> implements DiffIdentifier<TYPE, Map<Obj
 		
 		public abstract REPRESENTATION_TYPE createDiffRepresentation(TYPE object);
 
-		public abstract void addChangeMessages(ObjectId objectId, REPRESENTATION_TYPE before, Object after, ChangedStateMessage message);
+		public abstract void addChangeMessages(ObjectId objectId, REPRESENTATION_TYPE before, TYPE after, ChangedStateMessage message);
 	}
 }
 
@@ -226,5 +228,41 @@ class ArrayDiffer extends AbstractTypeHandler<Object, Object> {
 	@Override
 	public SynchronizationMessage createnewObjectMessage(ObjectId objectId, Object object) {
 		return new NewArrayMessage(objectId, object.getClass(), Array.getLength(object));
+	}
+}
+
+class SetDiffer extends AbstractTypeHandler<Set<Object>, Set<Object>> {
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public SetDiffer(ObjectReadProvider objectReadProvider) {
+		super((Class) Set.class, objectReadProvider);
+	}
+
+	@Override
+	public void addChangeMessages(ObjectId objectId, Set<Object> before,
+			Set<Object> after, ChangedStateMessage message) {
+		Set<Object> removeObjects = new HashSet<>();
+		if (before != null) {
+			for (Object o : before) {
+				if (!after.contains(o)) {
+					removeObjects.add(o);
+				}
+			}
+		}
+		
+		Set<Object> addedObjects = new HashSet<>();
+		for (Object o : after) {
+			if (before == null || !before.contains(o)) {
+				addedObjects.add(o);
+			}
+		}
+		if (removeObjects.size() > 0 || addedObjects.size() > 0) {
+			message.addUpdateObject(new UpdateSetMessage(objectId, addedObjects, removeObjects));
+		}
+	}
+
+	@Override
+	public Set<Object> createDiffRepresentation(Set<Object> object) {
+		return new HashSet<>(object);
 	}
 }
