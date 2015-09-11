@@ -1,22 +1,24 @@
 package org.jnet.core.synchronizer;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
+
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.jnet.core.UpdateableObject;
 import org.jnet.core.helper.CompareSameWrapper;
 import org.jnet.core.helper.Unchecker;
 import org.junit.Test;
-
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
 
 public abstract class AbstractLookAheadObjectTest {
 	protected LookAheadObject<?> testee;
@@ -255,6 +257,33 @@ public abstract class AbstractLookAheadObjectTest {
 
 		public SomeObject(UpdateableTestobject testobject) {
 			this.testobject = testobject;
+		}
+	}
+	
+	protected static class ObjectWithArrays {
+		int[] intArray = new int[] {1, 2, 3};
+		
+		SimpleObject[] objectArray = new SimpleObject[] {new SimpleObject(), new SimpleObject()};
+	}
+
+	protected static class ObjectWithSet {
+		Set<Integer> intSet;
+
+		ObjectWithSet() {
+			super();
+			this.intSet = new HashSet<>();
+			intSet.add(1);
+			intSet.add(2);
+		}
+	}
+	
+	protected static class SimpleObject {
+		String string = "string";
+		
+		long aLong = 42l;
+		
+		void changeString() {
+			string = "Michael";
 		}
 	}
 

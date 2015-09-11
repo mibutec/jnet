@@ -1,16 +1,18 @@
 package org.jnet.core.synchronizer;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.sameInstance;
+import static org.junit.Assert.assertThat;
+
 import org.jnet.core.synchronizer.message.ChangedStateMessage;
 import org.jnet.core.synchronizer.message.NewArrayMessage;
 import org.jnet.core.synchronizer.message.NewObjectMessage;
 import org.jnet.core.synchronizer.message.UpdateArrayMessage;
+import org.jnet.core.synchronizer.message.UpdateSetMessage;
 import org.junit.Test;
 
 import com.google.common.collect.ImmutableMap;
-
-import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.CoreMatchers.sameInstance;
-import static org.junit.Assert.assertThat;
+import com.google.common.collect.ImmutableSet;
 
 
 
@@ -60,7 +62,17 @@ public class LookAheadObjectSlaveTest extends AbstractLookAheadObjectTest {
 		testee().evolveLastTrustedState(message);
 		assertThat(complexeObject.intArray, is(new int[] {7, 8}));
 	}
-	
+
+	@Test
+	public void shouldHandleChangedSetsOnEvolve() {
+		ObjectWithSet object = new ObjectWithSet();
+		testee = createTestee(object);
+		ChangedStateMessage message = new ChangedStateMessage(0);
+		message.addUpdateObject(new UpdateSetMessage(findObjectIdForObject(object.intSet), ImmutableSet.of(42), ImmutableSet.of(1)));
+		testee().evolveLastTrustedState(message);
+		assertThat(object.intSet, is(ImmutableSet.of(2, 42)));
+	}
+
 	@Test
 	public void shouldSetNewObjectsOnEvolve() {
 		ComplexeObject complexeObject = new ComplexeObject();

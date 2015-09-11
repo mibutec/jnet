@@ -1,20 +1,5 @@
 package org.jnet.core.synchronizer;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-import org.jnet.core.synchronizer.message.ChangedStateMessage;
-import org.jnet.core.synchronizer.message.NewArrayMessage;
-import org.jnet.core.synchronizer.message.NewObjectMessage;
-import org.jnet.core.synchronizer.message.UpdateArrayMessage;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.runners.MockitoJUnitRunner;
-
-import com.google.common.collect.ImmutableMap;
-
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 import static org.mockito.Matchers.any;
@@ -25,6 +10,25 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.jnet.core.synchronizer.message.ChangedStateMessage;
+import org.jnet.core.synchronizer.message.NewArrayMessage;
+import org.jnet.core.synchronizer.message.NewObjectMessage;
+import org.jnet.core.synchronizer.message.UpdateArrayMessage;
+import org.jnet.core.synchronizer.message.UpdateSetMessage;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.runners.MockitoJUnitRunner;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 @RunWith(MockitoJUnitRunner.class)
 public class LookAheadObjectMasterTest extends AbstractLookAheadObjectTest {
@@ -95,13 +99,35 @@ public class LookAheadObjectMasterTest extends AbstractLookAheadObjectTest {
 	}
 	
 	@Test
-	public void shouldCreateUpdateMessageForChangedArrayElements() {
-		
+	public void shouldCreateUpdateMessageForChangedCollections() {
+		ObjectWithSet object = new ObjectWithSet();
+		Set<Integer> changedSet = new HashSet<>();
+		changedSet.add(7);
+		changedSet.add(8);
+		testee = createTestee(object);
+		when(testee().createMessage(anyInt())).thenReturn(csm);
+		testee.addEvent(new DirectInvokeEvent(0, () -> {
+			object.intSet = changedSet;
+		}));
+		testee().evolveLastTrustedState(100);
+		verify(csm).addNewObjectMessage(new NewObjectMessage(findObjectIdForObject(object.intSet), object.intSet.getClass()));
+		verify(csm).addUpdateObject(findObjectIdForObject(object), ImmutableMap.of("intSet", findObjectIdForObject(object.intSet)));
+		verify(csm).addUpdateObject(new UpdateSetMessage(testee().getIdForObject(object.intSet), ImmutableSet.of(7, 8), ImmutableSet.of()));
+		verifyNoMoreInteractions(csm);
 	}
 	
 	@Test
-	public void shouldCreateUpdateMessageForCollections() {
-		
+	public void shouldCreateUpdateMessageForChangedCollectionElements() {
+		ObjectWithSet object = new ObjectWithSet();
+		testee = createTestee(object);
+		when(testee().createMessage(anyInt())).thenReturn(csm);
+		testee.addEvent(new DirectInvokeEvent(0, () -> {
+			object.intSet.remove(1);
+			object.intSet.add(42);
+		}));
+		testee().evolveLastTrustedState(100);
+		verify(csm).addUpdateObject(new UpdateSetMessage(testee().getIdForObject(object.intSet), ImmutableSet.of(42), ImmutableSet.of(1)));
+		verifyNoMoreInteractions(csm);
 	}
 	
 	@Test
@@ -158,25 +184,9 @@ public class LookAheadObjectMasterTest extends AbstractLookAheadObjectTest {
 		}
 	}
 	
-	private static class SimpleObject {
-		private String string = "string";
-		
-		private long aLong = 42l;
-		
-		public void changeString() {
-			string = "Michael";
-		}
-	}
-	
 	private static class OuterClass {
 		private SimpleObject simple1 = new SimpleObject();
 		
 		private Object simple2 = new SimpleObject();
-	}
-	
-	private static class ObjectWithArrays {
-		private int[] intArray = new int[] {1, 2, 3};
-		
-		private SimpleObject[] objectArray = new SimpleObject[] {new SimpleObject(), new SimpleObject()};
 	}
 }
