@@ -32,16 +32,16 @@ public class RetryService implements Sleep {
         
         // do while timeout is not over but at least one time
         while ((timeRunning < maxTimeoutInMs) || (lastException == null)) {
-            LOGGER.debug("Executing method " + methodname + " on " + targetName + ", retrying (" + retryCount + "/"
+            LOGGER.trace("Executing method " + methodname + " on " + targetName + ", retrying (" + retryCount + "/"
                     + maxRetry + ")");
             try {
                 if (lastException != null) {
-                    LOGGER.debug("failed to invoke " + methodname + " on " + targetName + ", retrying (" + retryCount
+                    LOGGER.trace("failed to invoke " + methodname + " on " + targetName + ", retrying (" + retryCount
                             + "/" + maxRetry + "), " + lastException.getClass().getName());
                 }
                 return callable.call();
             } catch (Throwable th) {
-                LOGGER.debug("Executing method " + methodname + " on " + targetName + " failed with exception "
+                LOGGER.trace("Executing method " + methodname + " on " + targetName + " failed with exception "
                         + th.getClass().getName());
                 lastException = th;
                 retryCount++;

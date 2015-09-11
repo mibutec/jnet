@@ -107,12 +107,17 @@ public class DatagramWanEmulator {
      * Defaults to 1024.
      */
     private int maxPacketLength = 4096;
+
+    /**
+     * If true then it shows the packages it forwarded to System.out
+     */
+    private volatile boolean logMessages = false;
     /**
      * The amount of package loss. A value of 0.0f means no package loss,
      * a value of 1.0f means every packet will be lost.
      * Defaults to 0.1f (10%).
      */
-    private volatile float packageLoss = 0.0f;
+    private volatile float packageLoss = 0f;
 
     /**
      * The chance of a packet being duplicated. A value of 0.0f means no
@@ -120,20 +125,20 @@ public class DatagramWanEmulator {
      * be duplicated infinitely.
      * Defaults to 0.03f (3%).
      */
-    private volatile float packageDuplication = 0.03f;
+    private volatile float packageDuplication = 0f;
     /**
      * The maximum latency between sending from one host to receiving on the other one.
      * The latency will vary between minLatency and maxLatency.
      * Defaults to 250 ms.
      */
-    private volatile int maxLatency = 250;
+    private volatile int maxLatency = 0;
 
     /**
      * The minimum latency between sending from one host to receiving on the other one.
      * The latency will vary between minLatency and maxLatency.
      * Defaults to 100 ms.
      */
-    private volatile int minLatency = 100;
+    private volatile int minLatency = 0;
 
     /**
      * Gets the maximum size of incoming / outcoming datagram packets (in bytes).
@@ -247,7 +252,6 @@ public class DatagramWanEmulator {
         @Override
         public void run() {
             try {
-
                 while (true) {
                     byte[] bytes = new byte[maxPacketLength];
                     final DatagramPacket packet = new DatagramPacket(bytes, maxPacketLength);
@@ -263,7 +267,7 @@ public class DatagramWanEmulator {
                     else if (socketAddressB.equals(packet.getSocketAddress()))
                         packet.setSocketAddress(socketAddressA);
                     
-                    if (true) {
+                    if (logMessages) {
 	                    SocketAddress to = packet.getSocketAddress();
 	                    System.out.println("sending " + packet.getData().length + " bytes from " + from + " to " + to + " ('" + new String(packet.getData()).trim() + "')");
                     }
